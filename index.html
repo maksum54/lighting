@@ -114,6 +114,8 @@ header {
   font-size: 15px;
 }
 .btn-icon:hover { border-color: var(--border2); color: var(--text); background: var(--surface2); }
+.btn-ai-launch { display:inline-flex; align-items:center; gap:6px; padding:9px 12px; border-radius:var(--radius-sm); background:var(--gold-dim); color:var(--gold); border:1px solid rgba(245,200,66,.25); font-size:11px; font-weight:700; }
+.btn-ai-launch:hover { background:var(--gold); color:#17120a; }
 .badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px;
@@ -779,6 +781,7 @@ body::before {
   <div class="hspace"></div>
   <div class="header-actions">
     <div class="badge">⚡ Zonal Cavity Method</div>
+    <button class="btn-ai-launch" onclick="openAiChat()">✨ <span>AI Lampu</span></button>
     <button class="btn-icon" id="themeBtn" title="Toggle theme">🌙</button>
   </div>
 </header>
@@ -1230,6 +1233,12 @@ function switchTab(tab, btn) {
   btn.classList.add('active');
   if (tab === 'viz3d') { setTimeout(draw3D, 50); }
   if (tab === 'viz2d') { setTimeout(draw2D, 50); }
+}
+
+function openAiChat() {
+  const panel = document.querySelector('.ai-card');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => $('aiInput').focus(), 450);
 }
 
 function addAiMessage(text, role='bot') {
