@@ -4,3 +4,5 @@ node_modules
 revit/bin/
 revit/obj/
 revit/*.dll
+revit/src/bin/
+revit/src/obj/

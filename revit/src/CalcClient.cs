@@ -34,6 +34,8 @@ namespace LuxoraRevit
     /// <summary>Respons /api/calc — subset field yang dipakai add-in.</summary>
     public class CalcResult
     {
+        public double L { get; set; }        // panjang (m) yang benar-benar dipakai server
+        public double W { get; set; }        // lebar (m) yang benar-benar dipakai server
         public int n { get; set; }
         public int cols { get; set; }
         public int rows { get; set; }
@@ -47,6 +49,12 @@ namespace LuxoraRevit
     /// <summary>HTTP client tipis untuk memanggil /api/calc.</summary>
     public class CalcClient : IDisposable
     {
+        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+        };
+
         private readonly HttpClient _http;
 
         public CalcClient(string baseUrl)
@@ -76,16 +84,42 @@ namespace LuxoraRevit
                 string body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                 if (!resp.IsSuccessStatusCode)
                 {
-                    throw new Exception($"HTTP {(int)resp.StatusCode} dari /api/calc — {Truncate(body, 300)}");
+                    throw new Exception($"HTTP {(int)resp.StatusCode} dari /api/calc — {Truncate(ErrorOf(body), 300)}");
                 }
-                CalcResult result = JsonSerializer.Deserialize<CalcResult>(body);
+                CalcResult result;
+                try { result = JsonSerializer.Deserialize<CalcResult>(body, JsonOpts); }
+                catch (JsonException jex)
+                {
+                    throw new Exception("Respons /api/calc bukan JSON yang dikenal: " + jex.Message +
+                                        " — pastikan Base URL menunjuk ke server Luxora, bukan halaman lain.");
+                }
                 if (result == null) throw new Exception("Respons /api/calc tidak valid (JSON kosong).");
+                if (result.positionsM == null) result.positionsM = new List<GridPos>();
                 return result;
             }
             catch (HttpRequestException hex)
             {
                 throw new Exception("Gagal terhubung: " + hex.Message);
             }
+            catch (TaskCanceledException)
+            {
+                throw new Exception("Server tidak merespons dalam 15 detik (timeout).");
+            }
+        }
+
+        /// <summary>Ambil pesan dari body { "error": "..." } bila ada, supaya dialog lebih jelas.</summary>
+        private static string ErrorOf(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return "";
+            try
+            {
+                using JsonDocument d = JsonDocument.Parse(body);
+                if (d.RootElement.ValueKind == JsonValueKind.Object &&
+                    d.RootElement.TryGetProperty("error", out JsonElement e) && e.ValueKind == JsonValueKind.String)
+                    return e.GetString();
+            }
+            catch { /* bukan JSON — kembalikan apa adanya */ }
+            return body;
         }
 
         private static string Truncate(string s, int max)

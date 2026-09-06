@@ -17,6 +17,7 @@ namespace LuxoraRevit
         /// <summary>Ray-casting: apakah titik berada di dalam polygon (loop tertutup).</summary>
         public static bool PointInPolygon(XYZ point, IList<XYZ> poly)
         {
+            if (poly == null || poly.Count < 3) return false;
             bool inside = false;
             int n = poly.Count;
             for (int i = 0, j = n - 1; i < n; j = i++)
@@ -106,7 +107,8 @@ namespace LuxoraRevit
         public double AreaM2 { get; private set; }
         public double BaseElevation { get; private set; }       // elevasi lantai ruang (kaki)
 
-        private const double Ft2M = 0.3048;
+        public const double Ft2M = 0.3048;
+        public const double M2Ft = 1 / 0.3048;
 
         public static RoomGeometry Read(SpatialElement room)
         {
@@ -135,7 +137,11 @@ namespace LuxoraRevit
                         foreach (XYZ p in c.Tessellate()) raw.Add(p);
                     }
                 }
-                if (raw.Count >= 3) polygons.Add(Geo2D.DedupeLoop(raw));
+                if (raw.Count >= 3)
+                {
+                    List<XYZ> poly = Geo2D.DedupeLoop(raw);
+                    if (poly.Count >= 3) polygons.Add(poly);
+                }
             }
             if (polygons.Count == 0)
                 throw new InvalidOperationException("Tidak ada segmen boundary yang terbaca.");
@@ -174,20 +180,27 @@ namespace LuxoraRevit
             if (l1 < l2) { XYZ t = e1; e1 = e2; e2 = t; }
 
             // Rentang proyeksi outline pd kedua sumbu → L×W & pusat kotak.
+            // PENTING: proyeksi diukur RELATIF terhadap origin (centroid). Bila memakai koordinat
+            // absolut, "center" di bawah akan tergeser dua kali sebesar centroid sehingga seluruh
+            // titik grid jatuh jauh di luar ruang (gejala: semua lampu terhapus).
+            XYZ origin = new XYZ(mx, my, 0);
             double minU = double.PositiveInfinity, maxU = double.NegativeInfinity;
             double minV = double.PositiveInfinity, maxV = double.NegativeInfinity;
             foreach (XYZ p in outline)
             {
-                double u = p.X * e1.X + p.Y * e1.Y;
-                double v = p.X * e2.X + p.Y * e2.Y;
+                double dx = p.X - mx, dy = p.Y - my;
+                double u = dx * e1.X + dy * e1.Y;
+                double v = dx * e2.X + dy * e2.Y;
                 minU = Math.Min(minU, u); maxU = Math.Max(maxU, u);
                 minV = Math.Min(minV, v); maxV = Math.Max(maxV, v);
             }
             double cu = (minU + maxU) / 2, cv = (minV + maxV) / 2;
-            XYZ origin = new XYZ(mx, my, 0);
             XYZ center = origin + e1 * cu + e2 * cv;
 
             double areaM2 = Math.Abs(Geo2D.SignedArea2(outline)) * Ft2M * Ft2M;
+            foreach (List<XYZ> hole in holes)
+                areaM2 -= Math.Abs(Geo2D.SignedArea2(hole)) * Ft2M * Ft2M;
+            if (areaM2 < 0) areaM2 = 0;
 
             Level level = room.LevelId != null && room.LevelId != ElementId.InvalidElementId
                 ? doc.GetElement(room.LevelId) as Level : null;
@@ -200,8 +213,10 @@ namespace LuxoraRevit
                 Center = center,
                 AxisX = e1,
                 AxisY = e2,
-                LengthM = Math.Max(1, (maxU - minU) * Ft2M),
-                WidthM = Math.Max(1, (maxV - minV) * Ft2M),
+                // Ukuran dipakai untuk memetakan grid balik ke model, jadi TIDAK boleh di-clamp
+                // (clamp membuat posisi hasil website tak sinkron dgn ruang aslinya).
+                LengthM = (maxU - minU) * Ft2M,
+                WidthM = (maxV - minV) * Ft2M,
                 AreaM2 = areaM2,
                 BaseElevation = elev
             };
@@ -213,11 +228,75 @@ namespace LuxoraRevit
         /// </summary>
         public XYZ ToModel(double xM, double yM, double zFeet)
         {
-            double M2F = 1 / 0.3048;
+            return ToModel(xM, yM, zFeet, LengthM, WidthM);
+        }
+
+        /// <summary>
+        /// Sama seperti <see cref="ToModel(double,double,double)"/>, tetapi grid dipetakan
+        /// memakai dimensi yang benar-benar dipakai saat menghitung (mis. bila pengguna
+        /// menimpa P×L di dialog). Grid tetap ditengahkan pada pusat ruang.
+        /// </summary>
+        public XYZ ToModel(double xM, double yM, double zFeet, double lengthM, double widthM)
+        {
+            if (!(lengthM > 0)) lengthM = LengthM;
+            if (!(widthM > 0)) widthM = WidthM;
             XYZ p = Center
-                + AxisX * ((xM - LengthM / 2) * M2F)
-                + AxisY * ((yM - WidthM / 2) * M2F);
+                + AxisX * ((xM - lengthM / 2) * M2Ft)
+                + AxisY * ((yM - widthM / 2) * M2Ft);
             return new XYZ(p.X, p.Y, zFeet);
+        }
+
+        /// <summary>
+        /// Titik (kaki) berada di dalam ruang: di dalam outline, tidak di dalam lubang,
+        /// dan tidak lebih dekat dari <paramref name="marginFt"/> ke tepi mana pun.
+        /// </summary>
+        public bool ContainsPoint(XYZ point, double marginFt)
+        {
+            if (!Geo2D.PointInPolygon(point, Outline)) return false;
+            if (Holes != null)
+            {
+                foreach (List<XYZ> hole in Holes)
+                    if (Geo2D.PointInPolygon(point, hole)) return false;   // di dalam lubang = di luar ruang
+            }
+            if (marginFt <= 0) return true;
+            if (Geo2D.DistToPolygon(point, Outline) < marginFt) return false;
+            if (Holes != null)
+            {
+                foreach (List<XYZ> hole in Holes)
+                    if (Geo2D.DistToPolygon(point, hole) < marginFt) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Bila titik grid jatuh di luar ruang (ruang bentuk-L, sudut terpotong, dekat lubang),
+        /// cari titik pengganti terdekat yang masih sah dalam radius tertentu. Mengembalikan
+        /// null bila tidak ada — pemanggil boleh melewati titik itu.
+        /// </summary>
+        public XYZ SnapInside(XYZ point, double searchRadiusFt, double marginFt)
+        {
+            if (ContainsPoint(point, marginFt)) return point;
+            if (searchRadiusFt <= 0) return null;
+
+            // arah ke pusat ruang dicoba lebih dulu, lalu cincin melingkar makin lebar.
+            XYZ toCenter = new XYZ(Center.X - point.X, Center.Y - point.Y, 0);
+            double d = Math.Sqrt(toCenter.X * toCenter.X + toCenter.Y * toCenter.Y);
+            XYZ dir = d > 1e-9 ? new XYZ(toCenter.X / d, toCenter.Y / d, 0) : new XYZ(1, 0, 0);
+
+            const int rings = 8, spokes = 16;
+            for (int r = 1; r <= rings; r++)
+            {
+                double rad = searchRadiusFt * r / rings;
+                XYZ straight = new XYZ(point.X + dir.X * rad, point.Y + dir.Y * rad, point.Z);
+                if (ContainsPoint(straight, marginFt)) return straight;
+                for (int s = 0; s < spokes; s++)
+                {
+                    double a = 2 * Math.PI * s / spokes;
+                    XYZ cand = new XYZ(point.X + Math.Cos(a) * rad, point.Y + Math.Sin(a) * rad, point.Z);
+                    if (ContainsPoint(cand, marginFt)) return cand;
+                }
+            }
+            return null;
         }
     }
 }

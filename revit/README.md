@@ -1,6 +1,6 @@
 # Luxora — Add-in Autodesk Revit 2025
 
-Integrasi Revit ↔ website **Luxora** (`maksum54/lighting`): pilih Room/Space, add-in mengukur panjang–lebar ruang, memanggil endpoint kalkulasi website, lalu **memasang family lighting fixture** sesuai jumlah/jarak hasil hitung — dan **menghapus otomatis** lampu yang berada di luar batas ruang.
+Integrasi Revit ↔ website **Luxora** (`maksum54/lighting`): pilih Room/Space, add-in mengukur panjang–lebar ruang, memanggil endpoint kalkulasi website, lalu **memasang family lighting fixture** sesuai jumlah/jarak hasil hitung — dengan setiap titik **divalidasi lebih dulu** terhadap batas ruang.
 
 Requirement yang dipenuhi:
 - Klik/pilih **Room** (Revit Architecture) atau **Space** (MEP/mechanical) di dokumen.
@@ -8,7 +8,11 @@ Requirement yang dipenuhi:
 - **Connect ke website** → `POST /api/calc` → hitung jumlah/grid/posisi lampu di website.
 - Dialog input **nama family lighting fixture** (dari daftar family kategori *Lighting Fixtures* di dokumen — wajib cocok persis dgn yang ada di Revit).
 - **Push** → lampu tergambar otomatis di posisi yang dihitung, sebanyak hasil website.
-- Lampu yang titiknya **melewati/menempel boundary** ruang atau berada **di lubang** (loop dalam) **dihapus otomatis**.
+- Titik yang **melewati/menempel boundary** ruang atau berada **di lubang** (loop dalam) tidak pernah
+  dipasang: titik yang cuma sedikit meleset **digeser** ke posisi sah terdekat (ruang bentuk-L, sudut
+  terpotong, dekat kolom), sisanya **dilewati** dan dilaporkan di ringkasan.
+- Family **hosted / work-plane based** (mis. downlight di plafon) ikut didukung: add-in mencari
+  plafon/atap/lantai terdekat sebagai host sebelum jatuh ke penempatan berbasis level.
 
 ---
 
@@ -39,7 +43,23 @@ Hasil: `revit/bin/Release/net8.0-windows/LuxoraRevit.dll`.
 Bila folder instalasi Revit beda dari standar, beri tahu skrip:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File revit/build.ps1 -RevitInstallPath "C:\Program Files\Autodesk\Revit 2025"
+powershell -ExecutionPolicy Bypass -File revit/build.ps1 -RevitInstallPath "D:\Autodesk\Revit 2025"
+```
+
+Opsi lain:
+
+| Opsi | Guna |
+|---|---|
+| `-RevitVersion 2024` | Build & pasang untuk tahun Revit lain (sesuaikan juga `TargetFramework` untuk Revit ≤ 2024). |
+| `-Configuration Debug` | Build Debug. |
+| `-Install` | Sekalian salin DLL + `.addin` ke folder add-in. |
+| `-CurrentUser` | Pasang ke `%AppData%` (tanpa hak Administrator). |
+
+Tanpa `dotnet` di PATH atau tanpa RevitAPI.dll, skrip berhenti dengan pesan yang menyebut
+persis apa yang kurang — bukan ratusan error `CS0246`. Proyek juga bisa dibangun langsung:
+
+```powershell
+dotnet build revit/LuxoraRevit.sln -c Release -p:RevitInstallPath="C:\Program Files\Autodesk\Revit 2025"
 ```
 
 ---
@@ -75,8 +95,9 @@ powershell -ExecutionPolicy Bypass -File revit/build.ps1 -Install
    - **Family lighting fixture** — pilih dari daftar *Lighting Fixtures* yang ada di dokumen (atau ketik nama persis).
    - **Base URL** website Luxora (default `http://localhost:8787`).
    - *Preview* jumlah lampu langsung dari `/api/calc` (butuh koneksi).
-5. **Hitung & Pasang** → lampu dibuat di posisi grid (tinggi ≈ plafon), lalu **dihapus** bila di luar boundary ruang.
-6. Ringkasan: berapa dipasang / dihapus, Eavg, U₀, LPD.
+5. **Hitung & Pasang** → lampu dibuat di posisi grid (tinggi ≈ plafon); titik yang di luar boundary
+   digeser ke posisi sah terdekat atau dilewati.
+6. Ringkasan: berapa dipasang / digeser / dilewati, Eavg, U₀, LPD.
 
 ---
 
@@ -91,10 +112,11 @@ revit/
 └─ src/
    ├─ App.cs                  IExternalApplication → tab/panel/tombol ribbon
    ├─ CalcCommand.cs          IExternalCommand → alur utama (pilih→ukur→hitung→pasang)
-   ├─ RoomGeometry.cs         baca boundary Room/Space; PCA → P×L & sumbu; lubang; mapping model↔meter
+   ├─ RoomGeometry.cs         baca boundary Room/Space; PCA → P×L & sumbu; lubang; mapping model↔meter;
+   │                          uji titik-dalam-ruang & penggeseran titik ke dalam boundary
    ├─ CalcClient.cs           HTTP POST /api/calc + DTO
    ├─ CalcDialog.cs           WinForms input + preview
-   └─ FamilyPlacer.cs         cari family, tempatkan instance, filter & hapus yg di luar
+   └─ FamilyPlacer.cs         cari family, validasi titik, tempatkan instance (level/host/face)
 ```
 
 Alur data:
@@ -107,9 +129,11 @@ POST { L, W, H, wp, F, P, E, lumType, … } ──►  /api/calc (server.js / Ve
    ▲                                            calc-core.js (sama dgn logika web)
    └────────  { n, cols, rows, positionsM:[{x,y} m], actual, u0, lpd } ─┘
         ▼
-Place FamilySymbol di setiap (x,y) → meter→kaki, z = level + plafon
+Untuk tiap (x,y): meter→kaki di sumbu ruang, z = level + plafon
         ▼
-Hapus instance yang titiknya di luar outline / di dalam lubang / <5 cm dari tepi
+Titik diuji thd outline / lubang / margin tepi → digeser ke posisi sah terdekat bila perlu
+        ▼
+Place FamilySymbol (face plafon → elemen host → level, sesuai FamilyPlacementType)
 ```
 
 **Kunci kompatibilitas:** `lumType` yang dikirim add-in harus sama persis dengan kunci CU di
@@ -121,7 +145,9 @@ website (`calc-core.js` / `index.html`): `0.75`, `0.85`, `0.62`, `bat`, `lb`, `h
 
 - **P×L ruang** diambil dari kotak pembatas berorientasi terbaik (PCA) terhadap outline boundary.
   Ruang yang sangat tidak beraturan (bentuk-L berat, kurva) tetap terpasang di dalam polygon asli,
-  karena langkah penghapusan memfilter per titik. **Dinding interior pemecah ruang tidak dibaca** —
+  karena setiap titik divalidasi sendiri-sendiri. Pada ruang bentuk-L, titik grid yang jatuh di
+  bagian "takik" memang dilewati — jumlah lampu terpasang bisa lebih sedikit dari hasil hitung web,
+  dan itu dilaporkan di ringkasan. **Dinding interior pemecah ruang tidak dibaca** —
   add-in menangani satu Room/Space sebagai satu ruang (seperti web). Untuk partisi, bagi ruang jadi
   beberapa Room/Space dan jalankan per bagian.
 - Nama family **harus persis** dengan family di dokumen (case-insensitive). Add-in hanya mencari
@@ -148,3 +174,16 @@ Contoh request `/api/calc`:
 { "L": 10, "W": 8, "H": 2.7, "wp": 0.75, "F": 3000, "P": 36,
   "E": 300, "lumType": "0.75", "refC": 0.7, "refW": 0.5, "llf": 0.812, "cuManual": false }
 ```
+
+---
+
+## Kalau ada yang tidak beres
+
+| Gejala | Penyebab & obatnya |
+|---|---|
+| **"Tidak ada lampu yang berhasil dipasang" + semua titik dilewati** | Ruang yang dipilih tidak tertutup boundary-nya, atau P×L di dialog ditimpa jauh lebih besar dari ruang aslinya. Cek Room/Space-nya (harus *placed*, luas > 0) dan kembalikan P×L ke nilai terukur. |
+| **"Family … tidak ditemukan"** | Family kategori *Lighting Fixtures* belum dimuat ke dokumen (Insert → Load Family). Dialog hanya menampilkan family yang ada di dokumen aktif. |
+| **Sebagian titik "gagal dibuat instance-nya"** | Family-nya hosted/work-plane based tetapi tidak ada plafon di ketinggian pemasangan. Buat plafon dulu, atau pakai family non-hosted. |
+| **"Gagal terhubung ke website"** | `node server.js` belum jalan, atau Base URL salah. Uji dengan: `curl -X POST http://localhost:8787/api/calc -H "Content-Type: application/json" -d "{\"L\":10,\"W\":8,\"H\":2.7,\"wp\":0.75,\"F\":3000,\"P\":36,\"E\":300,\"lumType\":\"0.75\",\"refC\":0.7,\"refW\":0.5,\"llf\":0.812}"`. |
+| **Build: `RevitAPI.dll tidak ditemukan`** | Beri `-RevitInstallPath` ke folder instalasi Revit yang berisi `RevitAPI.dll` **dan** `RevitAPIUI.dll`. |
+| **Tab "Luxora" tidak muncul** | `.addin` dan `LuxoraRevit.dll` harus berada di folder Addins yang sama, dan Revit perlu dimulai ulang. |
