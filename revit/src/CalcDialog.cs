@@ -14,7 +14,8 @@ namespace LuxoraRevit
     /// Dialog input parameter + nama family lighting fixture (harus cocok dgn family di dokumen).
     /// Menampilkan P×L hasil ukur otomatis & preview jumlah lampu dari website.
     /// </summary>
-    public class CalcDialog : Form
+    // Nama lengkap System.Windows.Forms.Form agar tak ambigu dgn Autodesk.Revit.DB.Form (mass form).
+    public class CalcDialog : System.Windows.Forms.Form
     {
         private readonly SpatialElement _room;
         private readonly RoomGeometry _geo;
