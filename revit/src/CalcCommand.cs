@@ -42,7 +42,7 @@ namespace LuxoraRevit
                     return Result.Cancelled;
                 }
 
-                if (geo.BoundingSegments == null || geo.BoundingSegments.Count == 0)
+                if (geo.Outline == null || geo.Outline.Count == 0)
                 {
                     TaskDialog.Show("Luxora", "Ruang ini tidak memiliki boundary yang terhitung.\n" +
                                               "(Pastikan ruang sudah diberi batas/diplace, lalu coba lagi.)");
