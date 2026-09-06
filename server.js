@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { calcLuminaire } = require('./calc-core');
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 8787;
@@ -99,9 +100,22 @@ async function handleAi(req, res) {
   }
 }
 
+/* POST /api/calc — kalkulasi pencahayaan bersama (dipakai web & add-in Revit). Tanpa AI/key. */
+async function handleCalc(req, res) {
+  try {
+    const input = await readJson(req);
+    const out = calcLuminaire(input);
+    send(res, 200, JSON.stringify(out), 'application/json; charset=utf-8');
+  } catch (error) {
+    const status = error && error.status;
+    send(res, status || 400, JSON.stringify({ error: (error && error.message) || 'Invalid request' }), 'application/json');
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (url.pathname === '/api/ai' && req.method === 'POST') return handleAi(req, res);
+  if (url.pathname === '/api/calc' && req.method === 'POST') return handleCalc(req, res);
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method Not Allowed');
 
   const requested = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);

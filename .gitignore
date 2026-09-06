@@ -1,1 +1,6 @@
 .vercel
+node_modules
+.env
+revit/bin/
+revit/obj/
+revit/*.dll

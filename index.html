@@ -41,11 +41,8 @@
 <div class="grid2"><div class="field"><label>Tinggi plafon <b>m</b></label><input id="height" type="number" value="2.7" min="1.5" step=".1"></div><div class="field"><label>Tinggi bidang kerja <b>m</b></label><input id="workplane" type="number" value="0.75" min="0.2" step=".05"></div></div>
 <div class="field"><label>Lumen / lampu <b>lm</b></label><input id="lumens" type="number" value="3000" min="100" step="100"></div>
 <div class="grid2"><div class="field"><label>Daya / lampu <b>W</b></label><input id="watts" type="number" value="36" min="1"></div><div class="field"><label>Target lux <b>lx</b></label><input id="target" type="number" value="500" min="10" step="10"></div></div>
-<div class="field"><label>Jenis luminaire</label><select id="lumType">
-<option value="0.75" selected>Panel LED troffer (direct) — CU tabel</option>
-<option value="0.62">Lampu gantung / pendant — CU tabel</option>
-<option value="0.85">Downlight LED — CU tabel</option>
-</select></div>
+<div class="field"><label>Jenis luminaire</label><select id="lumType"></select>
+<div id="lumNote" style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px"></div></div>
 <div class="grid2"><div class="field"><label>Refl. plafon</label><select id="refCeil"><option>0.80</option><option selected>0.70</option><option>0.50</option><option>0.30</option><option>0.10</option></select></div><div class="field"><label>Refl. dinding</label><select id="refWall"><option>0.70</option><option selected>0.50</option><option>0.30</option><option>0.10</option></select></div></div>
 <div class="grid2"><div class="field"><label>CU <b>-</b></label><input id="cu" type="number" value="" placeholder="auto" min="0.2" max="1" step=".001"></div><div class="field"><label>LLF <b>-</b></label><input id="llf" type="number" value="0.812" min="0.5" max="1" step=".001"></div></div>
 <div class="field"><label class="chk"><input type="checkbox" id="cuManual" style="width:auto">Kunci CU manual (tulis nilai sendiri)</label></div>
@@ -122,12 +119,41 @@ const PRESETS=[
 ];
 const LLF_NOTES='LLF = LLD × LDD × BF dst. (0,8–0,85 umum)';
 
+/* Katalog luminaire. id = kunci tabel CU (lumType) — key lama 0.75/0.62/0.85 dipertahankan
+   agar proyek tersimpan (localStorage) tetap terbaca. CU nilai fotometris khas tiap kelas. */
+const LUM_CATALOG=[
+  {id:'0.75',label:'Panel LED troffer (direct)',cls:'direct / troffer',m:'recessed · plafon gantung',lm:3000, W:36,  shr:1.2},
+  {id:'0.85',label:'Downlight LED',             cls:'direct · distribusi menyebar',m:'recessed plafon',       lm:1800, W:18,  shr:1.0},
+  {id:'0.62',label:'Lampu gantung / pendant',   cls:'direct–indirect',m:'gantung ±0,3–0,5 m dr plafon',   lm:4000, W:45,  shr:1.3},
+  {id:'bat', label:'Linear batten / tube LED',  cls:'direct batten',m:'plafon / permukaan (4 ft)',         lm:5500, W:50,  shr:1.4},
+  {id:'lb',  label:'Low bay LED',               cls:'direct lebar (indoor rendah)',m:'3–6 m',              lm:14000,W:120, shr:1.1},
+  {id:'hb',  label:'High bay LED',              cls:'direct lebar (indoor tinggi)',m:'6–12 m',             lm:30000,W:240, shr:1.0},
+  {id:'flood',label:'Floodlight LED (outdoor)', cls:'wide beam',m:'dinding / tiang luar',                  lm:20000,W:200, shr:0.8},
+  {id:'spot',label:'Spotlight / track LED',     cls:'accent · beam sempit',m:'rel / track',                lm:1500, W:18,  shr:0.6}
+];
+function lumInfo(id){return LUM_CATALOG.find(l=>l.id===id)||null;}
+const LEGACY_LUM={};LUM_CATALOG.forEach(l=>{LEGACY_LUM[l.id]=true;});
+
 /* Tabel CU (zonal cavity). Kolom = [Refl plafon, Refl dinding]; baris = Room Index. Interpolasi linier. */
 const CU_TABLE={
+  /* Panel LED troffer direct */
   '0.75':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.63,0.57,0.51,0.44],0.8:[0.69,0.63,0.56,0.49],1.0:[0.72,0.66,0.59,0.51],1.25:[0.76,0.69,0.62,0.54],1.5:[0.79,0.72,0.65,0.56],2.0:[0.82,0.75,0.67,0.58],2.5:[0.84,0.77,0.69,0.60],3.0:[0.86,0.79,0.71,0.62],4.0:[0.87,0.80,0.72,0.63],5.0:[0.88,0.81,0.73,0.63]}},
+  /* Lampu gantung / pendant direct-indirect */
   '0.62':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.52,0.46,0.41,0.36],0.8:[0.58,0.51,0.45,0.39],1.0:[0.61,0.54,0.48,0.41],1.25:[0.64,0.57,0.50,0.44],1.5:[0.66,0.59,0.52,0.45],2.0:[0.69,0.61,0.54,0.47],2.5:[0.71,0.63,0.56,0.48],3.0:[0.72,0.65,0.57,0.50],4.0:[0.74,0.66,0.59,0.51],5.0:[0.75,0.67,0.59,0.52]}},
-  '0.85':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.71,0.64,0.57,0.49],0.8:[0.78,0.71,0.63,0.55],1.0:[0.82,0.75,0.66,0.57],1.25:[0.85,0.78,0.70,0.60],1.5:[0.87,0.80,0.72,0.62],2.0:[0.89,0.82,0.74,0.64],2.5:[0.91,0.84,0.76,0.66],3.0:[0.92,0.85,0.77,0.67],4.0:[0.93,0.86,0.78,0.68],5.0:[0.94,0.87,0.79,0.69]}}
+  /* Downlight LED */
+  '0.85':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.71,0.64,0.57,0.49],0.8:[0.78,0.71,0.63,0.55],1.0:[0.82,0.75,0.66,0.57],1.25:[0.85,0.78,0.70,0.60],1.5:[0.87,0.80,0.72,0.62],2.0:[0.89,0.82,0.74,0.64],2.5:[0.91,0.84,0.76,0.66],3.0:[0.92,0.85,0.77,0.67],4.0:[0.93,0.86,0.78,0.68],5.0:[0.94,0.87,0.79,0.69]}},
+  /* Linear batten / tube LED */
+  'bat':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.66,0.60,0.53,0.46],0.8:[0.72,0.66,0.58,0.50],1.0:[0.77,0.70,0.62,0.53],1.25:[0.81,0.74,0.65,0.56],1.5:[0.84,0.77,0.68,0.59],2.0:[0.87,0.80,0.71,0.61],2.5:[0.89,0.82,0.73,0.63],3.0:[0.90,0.84,0.75,0.65],4.0:[0.92,0.86,0.77,0.66],5.0:[0.93,0.87,0.78,0.67]}},
+  /* Low bay LED */
+  'lb':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.64,0.58,0.52,0.45],0.8:[0.71,0.64,0.57,0.50],1.0:[0.75,0.68,0.60,0.52],1.25:[0.79,0.72,0.63,0.55],1.5:[0.82,0.75,0.66,0.57],2.0:[0.85,0.78,0.69,0.60],2.5:[0.87,0.80,0.71,0.62],3.0:[0.88,0.82,0.73,0.63],4.0:[0.90,0.84,0.75,0.65],5.0:[0.91,0.85,0.76,0.66]}},
+  /* High bay LED */
+  'hb':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.60,0.55,0.50,0.43],0.8:[0.68,0.62,0.55,0.47],1.0:[0.73,0.66,0.58,0.50],1.25:[0.78,0.71,0.62,0.53],1.5:[0.82,0.75,0.66,0.56],2.0:[0.85,0.79,0.70,0.59],2.5:[0.88,0.82,0.73,0.61],3.0:[0.90,0.84,0.76,0.64],4.0:[0.92,0.87,0.79,0.67],5.0:[0.93,0.88,0.80,0.68]}},
+  /* Floodlight LED wide (outdoor) */
+  'flood':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.55,0.51,0.47,0.42],0.8:[0.62,0.57,0.52,0.46],1.0:[0.66,0.60,0.54,0.48],1.25:[0.70,0.64,0.57,0.51],1.5:[0.72,0.67,0.60,0.53],2.0:[0.75,0.70,0.63,0.56],2.5:[0.77,0.72,0.65,0.58],3.0:[0.79,0.73,0.66,0.59],4.0:[0.80,0.75,0.68,0.60],5.0:[0.81,0.76,0.69,0.61]}},
+  /* Spotlight / track — beam sempit (accent) */
+  'spot':{keys:[[0.80,0.70],[0.70,0.50],[0.50,0.30],[0.30,0.10]],rows:{0.6:[0.42,0.38,0.34,0.31],0.8:[0.50,0.45,0.40,0.36],1.0:[0.56,0.50,0.44,0.40],1.25:[0.61,0.55,0.49,0.43],1.5:[0.66,0.59,0.52,0.46],2.0:[0.72,0.65,0.57,0.50],2.5:[0.76,0.69,0.61,0.53],3.0:[0.79,0.72,0.64,0.56],4.0:[0.83,0.76,0.68,0.60],5.0:[0.86,0.79,0.70,0.62]}}
 };
+const CU_KEYS=Object.keys(CU_TABLE);
 
 function activePreset(){return PRESETS.find(p=>p.key===$('preset').value)||PRESETS[0];}
 
@@ -250,7 +276,8 @@ function recalc(){
   draw2d(d);
   draw3d(d);
   const p=$('printSummary');
-  p.innerHTML='<b>'+escHtml(d.project)+'</b> — '+d.L+' × '+d.W+' m, plafon '+d.H+' m, bidang kerja '+d.wp+' m · luas '+d.A.toFixed(1)+' m² · target '+d.E+' lx · '+d.installed+' lampu (grid '+d.cols+'×'+d.rows+', '+d.lumType.replace('.','')+') · aktual '+Math.round(d.actual)+' lx · U₀ '+d.u0.toFixed(2)+' · LPD '+d.lpd.toFixed(1)+' W/m² · CCT rekomendasi '+d.cct;
+  const lName=(lumInfo(d.lumType)||{}).label||d.lumType;
+  p.innerHTML='<b>'+escHtml(d.project)+'</b> — '+d.L+' × '+d.W+' m, plafon '+d.H+' m, bidang kerja '+d.wp+' m · luas '+d.A.toFixed(1)+' m² · target '+d.E+' lx · '+d.installed+' lampu (grid '+d.cols+'×'+d.rows+', '+escHtml(lName)+') · aktual '+Math.round(d.actual)+' lx · U₀ '+d.u0.toFixed(2)+' · LPD '+d.lpd.toFixed(1)+' W/m² · CCT rekomendasi '+d.cct;
 }
 
 function escHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
@@ -306,20 +333,39 @@ function draw2d(d){
     ctx.beginPath();ctx.roundRect(px-7,py-5,14,10,3);ctx.fill();ctx.stroke();
     ctx.fillStyle='#263d4b';ctx.fillRect(px-4,py-2,8,4);
   }
-  // footer
-  ctx.textAlign='left';ctx.font='11px system-ui';
-  ctx.fillStyle='#ffd166';ctx.fillText('■ Fixture',ox,oy+h+28);
-  ctx.fillStyle='#8ba9bb';ctx.fillText('heatmap = iluminasi titik per titik (estimasi)',ox+76,oy+h+28);
-  ctx.textAlign='right';ctx.fillStyle='#72e6a4';
-  ctx.fillText('Eav '+Math.round(d.actual)+' lx · Emin(area tugas) ±'+Math.round(d.emin)+' lx · U₀ '+d.u0.toFixed(2),ox+w,oy+h+28);
-  // colorbar
-  const bw=Math.min(200,w);
-  const cbx=ox, cbw=bw,cby=oy+h+38,cbh=6;
+  // ---- footer: legenda + statistik + colorbar (dipatok dari bawah kanvas,
+  // ---- diukur dgn measureText supaya tidak pernah saling tumpang tindih) ----
+  const fR=ox+w, gCol='#ffd166', mCol='#8ba9bb', sCol='#72e6a4';
+  ctx.font='11px system-ui';ctx.textBaseline='alphabetic';
+  const stats='Eav '+Math.round(d.actual)+' lx · Emin(area tugas) '+Math.round(d.emin)+' lx · U₀ '+d.u0.toFixed(2);
+  const fixture='■ Fixture';
+  const desc=' heatmap = iluminasi titik per titik (estimasi)';
+  const wStats=ctx.measureText(stats).width;
+  const wF=ctx.measureText(fixture).width;
+  const sameRow=(wF+14+wStats)<=w;          // cukup satu baris dalam lebar denah?
+  const txtY1=H-40, txtY2=H-56;              // dua baris aman (ruang bawah denah ≥ ~80px)
+  if(sameRow){                               // satu baris: legenda kiri + statistik kanan
+    ctx.textAlign='left';ctx.fillStyle=gCol;ctx.fillText(fixture,ox,txtY1);
+    ctx.fillStyle=mCol;ctx.fillText(desc,ox+wF,txtY1);
+    ctx.textAlign='right';ctx.fillStyle=sCol;ctx.fillText(stats,fR,txtY1);
+  }else{                                     // ruang sempit: statistik naik ke baris sendiri
+    ctx.textAlign='right';ctx.fillStyle=sCol;ctx.fillText(stats,fR,txtY2);
+    let L=fixture+desc;                      // potong legenda agar tak keluar kanvas
+    while(ctx.measureText(L).width>Math.max(60,W-ox-8)&&L.length>10)L=L.slice(0,-1);
+    if(L!==fixture+desc)L+='…';
+    ctx.textAlign='left';
+    if(L.startsWith(fixture)){               // pertahankan blok '■ Fixture' berwarna emas
+      ctx.fillStyle=gCol;ctx.fillText('■ Fixture',ox,txtY1);
+      ctx.fillStyle=mCol;ctx.fillText(L.slice(fixture.length),ox+wF,txtY1);
+    }else{ctx.fillStyle=mCol;ctx.fillText(L,ox,txtY1);}
+  }
+  // colorbar di bawah (label '0 lx' / 'N lx+' di paling bawah kanvas)
+  const cbw=Math.min(200,w),cbx=ox,cby=H-29,cbh=6;
   for(let i=0;i<cbw;i++){ctx.fillStyle=cm(maxL*i/cbw);ctx.fillRect(cbx+i,cby,1.5,cbh);}
   ctx.strokeStyle='#263548';ctx.strokeRect(cbx,cby,cbw,cbh);
-  ctx.textAlign='left';ctx.fillStyle='#6b8190';ctx.font='9px system-ui';
-  ctx.fillText('0 lx',cbx,cby+cbh+12);
-  ctx.textAlign='right';ctx.fillText(Math.round(maxL)+' lx+',cbx+cbw,cby+cbh+12);
+  ctx.fillStyle='#6b8190';ctx.font='9px system-ui';
+  ctx.textAlign='left';ctx.fillText('0 lx',cbx,H-10);
+  ctx.textAlign='right';ctx.fillText(Math.round(maxL)+' lx+',cbx+cbw,H-10);
 }
 
 /* ---------- 3D ---------- */
@@ -437,7 +483,7 @@ function loadProject(){
     if(o.L)$('length').value=o.L;if(o.W)$('width').value=o.W;if(o.H)$('height').value=o.H;if(o.wp)$('workplane').value=o.wp;
     if(o.F)$('lumens').value=o.F;if(o.P)$('watts').value=o.P;if(o.E)$('target').value=o.E;
     if(o.refC!=null)$('refCeil').value=String(o.refC);if(o.refW!=null)$('refWall').value=String(o.refW);
-    if(o.lumType&&CU_TABLE[o.lumType])$('lumType').value=o.lumType;
+    if(o.lumType&&CU_TABLE[o.lumType]){$('lumType').value=o.lumType;if(window.lumNoteText)$('lumNote').textContent=lumNoteText(o.lumType);}
     if(o.llf!=null)$('llf').value=o.llf;
     $('cuManual').checked=!!o.manual;
     if(o.manual&&o.cu!=null)$('cu').value=o.cu;else $('cu').value='';
@@ -493,12 +539,33 @@ function exportDXF(){
   const sel=$('preset');
   PRESETS.forEach(p=>{const o=document.createElement('option');o.value=p.key;o.textContent=p.label;sel.appendChild(o);});
   sel.value='kantor';
+  const ltSel=$('lumType');
+  LUM_CATALOG.forEach(l=>{const o=document.createElement('option');o.value=l.id;o.textContent=l.label;ltSel.appendChild(o);});
+  ltSel.value='0.75';
+  function lumNoteText(id){ // murni teks catatan; tidak menyentuh nilai lumens/watts
+    const l=lumInfo(id);
+    if(!l)return '';
+    const parts=[];
+    if(l.cls)parts.push(l.cls);
+    if(l.m)parts.push(l.m);
+    if(l.shr)parts.push('SHR maks ~'+l.shr);
+    return parts.join(' · ')+' — CU dari tabel fotometri kelas ini.';
+  }
+  function lumChanged(){
+    const l=lumInfo(ltSel.value);
+    if(!l)return;
+    if(!$('cuManual').checked){$('lumens').value=l.lm;$('watts').value=l.W;}
+    $('lumNote').textContent=lumNoteText(ltSel.value);
+  }
+  window.lumNoteText=lumNoteText; // dipakai loadProject agar catatan sinkron tanpa menimpa F/P
+  ltSel.addEventListener('change',()=>{lumChanged();recalc();});
   document.querySelectorAll('input,select').forEach(x=>x.addEventListener('input',recalc));
   $('preset').addEventListener('change',applyPreset);
   $('cu').addEventListener('input',()=>{if(!$('cuManual').checked){$('cuManual').checked=true;}});
   $('btnSave').addEventListener('click',saveProject);
   $('btnLoad').addEventListener('click',loadProject);
   $('btnReset').addEventListener('click',resetDesign);
+  lumChanged();
   document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.view)));
   const cv=$('roomCanvas');
   cv.addEventListener('pointerdown',e=>{state.drag=true;state.x=e.clientX;if(cv.setPointerCapture)cv.setPointerCapture(e.pointerId);});

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>LuxoraRevit</AssemblyName>
+    <RootNamespace>LuxoraRevit</RootNamespace>
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- RevitAPI tidak boleh ikut tersalin ke folder output -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <!--
+    RevitAPI.dll / RevitAPIUI.dll TIDAK di-redistribusi. Path di bawah memakai lokasi
+    standar instalasi Revit 2025; build.ps1 menimpanya otomatis bila folder beda.
+  -->
+  <ItemGroup Condition="Exists('$(RevitInstallPath)RevitAPI.dll')">
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitInstallPath)RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitInstallPath)RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="!Exists('$(RevitInstallPath)RevitAPI.dll') And Exists('$(ProgramFiles)\Autodesk\Revit 2025\RevitAPI.dll')">
+    <Reference Include="RevitAPI">
+      <HintPath>$(ProgramFiles)\Autodesk\Revit 2025\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(ProgramFiles)\Autodesk\Revit 2025\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LuxoraRevit.addin" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
