@@ -7,6 +7,11 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Mechanical;
+// RevitAPI mendefinisikan DB.Color dan DB.Control sendiri, sehingga bentrok dengan
+// System.Drawing.Color dan System.Windows.Forms.Control saat dipakai tanpa kualifikasi.
+// Alias berikut membuat "Color" dan "Control" di file ini selalu merujuk ke tipe WinForms/Drawing.
+using Color = System.Drawing.Color;
+using Control = System.Windows.Forms.Control;
 
 namespace LuxoraRevit
 {
