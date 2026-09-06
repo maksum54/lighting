@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LuxCalc — Lighting Design Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── Variables ─── */
+:root {
+  --bg: #0a0b0f;
+  --bg2: #111318;
+  --surface: #16181f;
+  --surface2: #1e2029;
+  --surface3: #252831;
+  --border: rgba(255,255,255,.07);
+  --border2: rgba(255,255,255,.12);
+  --text: #e8eaf0;
+  --text2: #9da3b4;
+  --text3: #5a6080;
+  --gold: #f5c842;
+  --gold2: #e8a820;
+  --gold-dim: rgba(245,200,66,.12);
+  --gold-glow: rgba(245,200,66,.25);
+  --cyan: #4ecdc4;
+  --cyan-dim: rgba(78,205,196,.1);
+  --green: #50fa7b;
+  --green-dim: rgba(80,250,123,.1);
+  --red: #ff6b6b;
+  --purple: #bd93f9;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 24px rgba(0,0,0,.4);
+  --shadow-lg: 0 12px 48px rgba(0,0,0,.6);
+  --transition: .2s ease;
+}
+[data-theme="light"] {
+  --bg: #f0f2f7;
+  --bg2: #e8eaf0;
+  --surface: #ffffff;
+  --surface2: #f5f6fa;
+  --surface3: #eceef5;
+  --border: rgba(0,0,0,.08);
+  --border2: rgba(0,0,0,.14);
+  --text: #1a1d2e;
+  --text2: #4a5070;
+  --text3: #8890a8;
+  --gold-dim: rgba(200,140,10,.1);
+  --gold-glow: rgba(200,140,10,.2);
+  --shadow: 0 4px 20px rgba(0,0,0,.08);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.12);
+}
+
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+
+/* ─── Layout ─── */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+/* ─── Header ─── */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.logo-mark {
+  width: 38px; height: 38px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  display: grid; place-items: center;
+  box-shadow: 0 0 20px var(--gold-glow);
+  flex-shrink: 0;
+  font-size: 18px;
+}
+.brand-text h1 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.brand-text p  { font-size: 11px; color: var(--text2); }
+.hspace { flex: 1; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.btn-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text2);
+  display: grid; place-items: center;
+  transition: var(--transition);
+  font-size: 15px;
+}
+.btn-icon:hover { border-color: var(--border2); color: var(--text); background: var(--surface2); }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(245,200,66,.2);
+}
+
+/* ─── Main grid ─── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 0;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  align-items: start;
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+  height: calc(100vh - 67px);
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface3) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+/* ─── Cards ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color var(--transition);
+}
+.card:hover { border-color: var(--border2); }
+.card-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.card-header-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.card-header-icon.gold { background: var(--gold-dim); }
+.card-header-icon.cyan { background: var(--cyan-dim); }
+.card-header-icon.green { background: var(--green-dim); }
+.card-header h2 { font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text2); }
+.card-chevron { margin-left: auto; color: var(--text3); font-size: 11px; transition: transform var(--transition); }
+.card.collapsed .card-chevron { transform: rotate(-90deg); }
+.card.collapsed .card-body { display: none; }
+.card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ─── Form fields ─── */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label {
+  font-size: 11px; font-weight: 500;
+  color: var(--text2);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.field-label span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--gold); }
+.input-wrap {
+  display: flex; align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.input-wrap:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-dim);
+}
+.input-unit {
+  padding: 0 10px;
+  font-size: 11px; font-weight: 500;
+  color: var(--text3);
+  background: var(--surface3);
+  border-right: 1px solid var(--border);
+  height: 36px; display: flex; align-items: center;
+  white-space: nowrap;
+}
+.input-unit.right { border-right: none; border-left: 1px solid var(--border); }
+input[type=text], input[type=number] {
+  flex: 1; padding: 0 10px; height: 36px;
+  background: transparent; border: none; outline: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 500;
+  color: var(--text);
+  width: 100%;
+}
+.input-stepper {
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+.input-stepper button {
+  flex: 1; width: 26px;
+  color: var(--text3); font-size: 10px;
+  display: grid; place-items: center;
+  transition: var(--transition);
+}
+.input-stepper button:hover { background: var(--surface3); color: var(--text); }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ─── Slider ─── */
+.slider-field { display: flex; flex-direction: column; gap: 6px; }
+.slider-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 500; color: var(--text2);
+}
+.slider-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 600; color: var(--gold);
+}
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%; height: 4px;
+  border-radius: 4px;
+  background: var(--surface3);
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold-glow);
+  cursor: pointer;
+  transition: transform var(--transition);
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.slider-ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); }
+
+/* ─── Save button ─── */
+.btn-save {
+  margin-top: 4px;
+  width: 100%; height: 40px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: #0a0b0f; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: var(--transition);
+  box-shadow: 0 4px 16px var(--gold-glow);
+}
+.btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--gold-glow); }
+.btn-save:active { transform: translateY(0); }
+
+/* ─── Content area ─── */
+.content {
+  height: calc(100vh - 67px);
+  overflow-y: auto;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface3) transparent;
+}
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+/* ─── Stat cards ─── */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: relative; overflow: hidden;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.stat-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-color, var(--gold)), transparent);
+}
+.stat-card.cyan { --accent-color: var(--cyan); }
+.stat-card.green { --accent-color: var(--green); }
+.stat-card.purple { --accent-color: var(--purple); }
+.stat-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px; font-size: 15px;
+  display: grid; place-items: center;
+  margin-bottom: 10px;
+}
+.stat-icon.gold { background: var(--gold-dim); }
+.stat-icon.cyan { background: var(--cyan-dim); }
+.stat-icon.green { background: var(--green-dim); }
+.stat-icon.purple { background: rgba(189,147,249,.1); }
+.stat-label { font-size: 11px; color: var(--text2); font-weight: 500; margin-bottom: 4px; }
+.stat-value { font-size: 22px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.stat-value.gold { color: var(--gold); }
+.stat-value.cyan { color: var(--cyan); }
+.stat-value.green { color: var(--green); }
+.stat-value.purple { color: var(--purple); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ─── Tab bar ─── */
+.tab-bar {
+  display: flex; gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+}
+.tab-btn {
+  flex: 1; padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text2);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: var(--transition);
+}
+.tab-btn:hover { background: var(--surface2); color: var(--text); }
+.tab-btn.active {
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(245,200,66,.2);
+}
+
+/* ─── Tab panels ─── */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ─── 2D Visualization ─── */
+.viz-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.viz-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.viz-toolbar h3 { font-size: 13px; font-weight: 600; }
+.viz-toolbar .hspace { flex: 1; }
+.btn-sm {
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  display: flex; align-items: center; gap: 5px;
+  transition: var(--transition);
+}
+.btn-sm:hover { border-color: var(--border2); color: var(--text); }
+.btn-sm.active { background: var(--gold-dim); color: var(--gold); border-color: rgba(245,200,66,.25); }
+
+canvas { display: block; }
+#viz2d { width: 100%; cursor: crosshair; }
+
+/* ─── 3D View ─── */
+#viz3d-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+#viz3d {
+  width: 100%;
+  background: linear-gradient(180deg, #0d1117 0%, #1a2035 100%);
+}
+.scene-label {
+  position: absolute; bottom: 12px; right: 12px;
+  font-size: 10px; color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─── Formula section ─── */
+.formula-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.formula-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.formula-card-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .04em;
+  display: flex; align-items: center; gap: 8px;
+}
+.formula-card-body { padding: 14px; }
+.formula-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px; margin-bottom: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; color: var(--gold);
+  text-align: center; font-weight: 500;
+}
+table { width: 100%; border-collapse: collapse; }
+td {
+  padding: 8px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+td:first-child { color: var(--text2); }
+td:last-child { font-family: 'JetBrains Mono', monospace; font-weight: 500; text-align: right; color: var(--text); }
+tr:last-child td { border-bottom: none; }
+tr.highlight td { color: var(--gold); }
+
+.calc-step {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.calc-step:last-child { margin-bottom: 0; }
+.calc-step-label { color: var(--text2); }
+.calc-step-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text); }
+.calc-step.final .calc-step-label { color: var(--gold); font-weight: 600; }
+.calc-step.final .calc-step-value { color: var(--gold); font-size: 14px; }
+
+/* ─── Export buttons ─── */
+.export-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.export-row h3 { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; }
+.export-row .hspace { flex: 1; }
+.btn-export {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; gap: 6px;
+  transition: var(--transition);
+  border: 1px solid;
+}
+.btn-export:hover { transform: translateY(-1px); }
+.btn-export.pdf { border-color: rgba(255,107,107,.3); background: rgba(255,107,107,.08); color: #ff6b6b; }
+.btn-export.pdf:hover { background: rgba(255,107,107,.15); }
+.btn-export.png { border-color: rgba(78,205,196,.3); background: rgba(78,205,196,.08); color: var(--cyan); }
+.btn-export.png:hover { background: rgba(78,205,196,.15); }
+.btn-export.dxf { border-color: rgba(80,250,123,.3); background: rgba(80,250,123,.08); color: var(--green); }
+.btn-export.dxf:hover { background: rgba(80,250,123,.15); }
+.btn-export.json { border-color: rgba(189,147,249,.3); background: rgba(189,147,249,.08); color: var(--purple); }
+.btn-export.json:hover { background: rgba(189,147,249,.15); }
+
+/* ─── Lamp efficiency display ─── */
+.lamp-eff-display {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.led-row {
+  display: flex; align-items: center; gap: 0;
+}
+.led-item {
+  flex: 1; text-align: center;
+}
+.led-item-label {
+  font-size: 10px; font-weight: 500;
+  color: var(--text3); text-transform: uppercase; letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+.led-item-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; font-weight: 700;
+}
+.led-item-value.cyan { color: var(--cyan); }
+.led-divider {
+  width: 1px; height: 32px;
+  background: var(--border2); margin: 0 8px; flex-shrink: 0;
+}
+
+/* ─── Notification toast ─── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 12px 18px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(100px); opacity: 0;
+  transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  z-index: 999;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(80,250,123,.3); color: var(--green); }
+.toast.info { border-color: rgba(245,200,66,.3); color: var(--gold); }
+
+/* ─── Lux standard guide ─── */
+.lux-guide {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.lux-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px; cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+.lux-chip:hover { border-color: var(--gold); background: var(--gold-dim); }
+.lux-chip .lc-name { font-size: 10px; color: var(--text2); font-weight: 500; }
+.lux-chip .lc-val { font-size: 13px; font-weight: 700; color: var(--gold); font-family: 'JetBrains Mono', monospace; }
+
+/* ─── Print report header (screen: hidden, print: visible) ─── */
+.print-report-header { display: none; }
+@media print {
+  .print-report-header {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 0 10px;
+    border-bottom: 2px solid #f5c842;
+    margin-bottom: 12px;
+  }
+  .prh-title { font-size: 15px; font-weight: 700; color: #000; }
+  .prh-sub   { font-size: 10px; color: #666; margin-top: 2px; }
+  .prh-right { text-align: right; }
+  .prh-meta  { font-size: 10px; color: #555; font-family: 'JetBrains Mono', monospace; line-height: 1.6; }
+  .print-footer { display: flex !important; }
+}
+
+/* ─── Print / PDF ─── */
+@media print {
+  @page { size: A4 portrait; margin: 14mm 12mm; }
+
+  /* Hide everything interactive */
+  header .badge, header .btn-icon,
+  .sidebar, .tab-bar, .export-row,
+  .toast, body::before,
+  #tab-viz3d, #tab-formula,
+  .viz-toolbar .btn-sm,
+  .hspace { display: none !important; }
+
+  /* Reset layout to single column */
+  html, body { background: #fff !important; color: #000 !important; height: auto !important; }
+  .app { display: block !important; }
+  header {
+    position: static !important;
+    background: #fff !important;
+    border-bottom: 2px solid #f5c842 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 10px 16px !important;
+    margin-bottom: 12px;
+  }
+  .logo-mark { background: #f5c842 !important; box-shadow: none !important; }
+  .brand-text h1 { color: #000 !important; }
+  .brand-text p  { color: #555 !important; }
+
+  .main-grid { display: block !important; }
+
+  /* Stats row — 4 columns, compact */
+  .content {
+    height: auto !important; overflow: visible !important;
+    padding: 0 !important; display: block !important;
+  }
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  .stat-card {
+    background: #f9f9f9 !important;
+    border: 1px solid #ddd !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+  .stat-card::before { display: none !important; }
+  .stat-icon { display: none !important; }
+  .stat-label { font-size: 9px !important; color: #555 !important; }
+  .stat-value { font-size: 18px !important; }
+  .stat-value.gold  { color: #b8860b !important; }
+  .stat-value.cyan  { color: #008080 !important; }
+  .stat-value.green { color: #2e7d32 !important; }
+  .stat-value.purple{ color: #6a1b9a !important; }
+  .stat-sub { font-size: 9px !important; color: #777 !important; }
+
+  /* 2D Canvas — full width, page 1 */
+  .tab-panel { display: none !important; }
+  #tab-viz2d { display: block !important; }
+  .viz-container {
+    border: 1px solid #ccc !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .viz-toolbar {
+    background: #f5f5f5 !important;
+    border-bottom: 1px solid #ddd !important;
+    padding: 8px 12px !important;
+  }
+  .viz-toolbar h3 { color: #000 !important; font-size: 12px !important; }
+  #viz2d { width: 100% !important; max-width: 100% !important; }
+
+  /* PAGE BREAK — formula on page 2 */
+  #tab-formula {
+    display: block !important;
+    page-break-before: always;
+    break-before: page;
+    padding-top: 6px;
+  }
+  /* Formula section — page 2 */
+  .formula-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    margin-top: 0;
+  }
+  .formula-card {
+    border: 1px solid #ccc !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+  .formula-card-header {
+    background: #f5f5f5 !important;
+    color: #333 !important;
+    font-size: 10px !important;
+    padding: 8px 12px !important;
+    border-bottom: 1px solid #ddd !important;
+  }
+  .formula-card-body { padding: 10px 12px !important; }
+  .formula-box {
+    background: #fffbf0 !important;
+    border: 1px solid #f5c842 !important;
+    color: #8a6a00 !important;
+    font-size: 11px !important;
+    padding: 7px 10px !important;
+  }
+  td { font-size: 10px !important; padding: 5px 8px !important; border-color: #eee !important; }
+  td:last-child { color: #000 !important; }
+  tr.highlight td { color: #8a6a00 !important; }
+  .calc-step {
+    background: #f9f9f9 !important;
+    border-radius: 5px !important;
+    padding: 5px 9px !important;
+    margin-bottom: 4px !important;
+    font-size: 10px !important;
+  }
+  .calc-step-label { color: #555 !important; }
+  .calc-step-value { color: #000 !important; font-size: 11px !important; }
+  .calc-step.final .calc-step-label,
+  .calc-step.final .calc-step-value { color: #8a6a00 !important; }
+
+  /* Print footer */
+  .print-footer {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #ddd;
+    font-size: 9px;
+    color: #999;
+    display: flex !important;
+    justify-content: space-between;
+  }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .sidebar { height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .content { height: auto; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .formula-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 540px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .tab-btn span { display: none; }
+}
+
+/* ─── Glow background ─── */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(245,200,66,.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-in { animation: fadeIn .35s ease forwards; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+.pulsing { animation: pulse 1.5s ease infinite; }
+
+/* ─── Number highlight ─── */
+.num-update {
+  animation: numPop .25s ease;
+}
+@keyframes numPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* divider label */
+.divider-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text3);
+}
+.divider-label::before, .divider-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="logo-mark">💡</div>
+  <div class="brand-text">
+    <h1>LuxCalc</h1>
+    <p>Lighting Design Studio</p>
+  </div>
+  <div class="hspace"></div>
+  <div class="header-actions">
+    <div class="badge">⚡ Zonal Cavity Method</div>
+    <button class="btn-icon" id="themeBtn" title="Toggle theme">🌙</button>
+  </div>
+</header>
+
+<!-- ─── MAIN ─── -->
+<div class="main-grid">
+
+  <!-- ════ SIDEBAR ════ -->
+  <aside class="sidebar">
+
+    <!-- Project Name -->
+    <div style="margin-bottom:6px">
+      <div class="field">
+        <div class="field-label">Nama Proyek</div>
+        <div class="input-wrap">
+          <span class="input-unit">📁</span>
+          <input type="text" id="projectName" value="Ruang Utama" placeholder="Nama proyek...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Room Dimensions -->
+    <div class="card" id="cardRoom">
+      <div class="card-header" onclick="toggleCard('cardRoom')">
+        <div class="card-header-icon gold">📐</div>
+        <h2>Dimensi Ruangan</h2>
+        <span class="card-chevron">▼</span>
+      </div>
+      <div class="card-body">
+        <div class="field-grid">
+          <div class="field">
+            <div class="field-label">Panjang (L) <span id="lVal">10</span></div>
+            <div class="input-wrap">
+              <input type="number" id="L" value="10" min="1" max="200" step="0.5">
+              <span class="input-unit right">m</span>
+              <div class="input-stepper">
+                <button onclick="step('L',0.5)">▲</button>
+                <button onclick="step('L',-0.5)">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Lebar (W) <span id="wVal">8</span></div>
+            <div class="input-wrap">
+              <input type="number" id="W" value="8" min="1" max="200" step="0.5">
+              <span class="input-unit right">m</span>
+              <div class="input-stepper">
+                <button onclick="step('W',0.5)">▲</button>
+                <button onclick="step('W',-0.5)">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field">
+            <div class="field-label">Plafon (H) <span id="hVal">2.7</span></div>
+            <div class="input-wrap">
+              <input type="number" id="H" value="2.7" min="1.5" max="20" step="0.1">
+              <span class="input-unit right">m</span>
+              <div class="input-stepper">
+                <button onclick="step('H',0.1)">▲</button>
+                <button onclick="step('H',-0.1)">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Gantung (Hm) <span id="hmVal">2.5</span></div>
+            <div class="input-wrap">
+              <input type="number" id="Hm" value="2.5" min="0.5" max="20" step="0.1">
+              <span class="input-unit right">m</span>
+              <div class="input-stepper">
+                <button onclick="step('Hm',0.1)">▲</button>
+                <button onclick="step('Hm',-0.1)">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;display:flex;gap:16px;font-size:11px;color:var(--text2)">
+          <span>🏠 Luas: <strong id="areaDisplay" style="color:var(--text)">80 m²</strong></span>
+          <span>📦 Volume: <strong id="volDisplay" style="color:var(--text)">216 m³</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lamp Specs -->
+    <div class="card" id="cardLamp">
+      <div class="card-header" onclick="toggleCard('cardLamp')">
+        <div class="card-header-icon gold">💡</div>
+        <h2>Spesifikasi Lampu</h2>
+        <span class="card-chevron">▼</span>
+      </div>
+      <div class="card-body">
+
+        <!-- Flux slider -->
+        <div class="slider-field">
+          <div class="slider-header">
+            <span>Output Flux</span>
+            <span class="slider-value" id="fluxLabel">3000 lm</span>
+          </div>
+          <input type="range" id="flux" min="500" max="20000" step="100" value="3000">
+          <div class="slider-ticks"><span>500</span><span>5k</span><span>10k</span><span>20k</span></div>
+        </div>
+
+        <!-- Daya input - full width for clarity -->
+        <div class="field">
+          <div class="field-label">
+            Daya Lampu
+            <span>per unit</span>
+          </div>
+          <div class="input-wrap">
+            <span class="input-unit">⚡</span>
+            <input type="number" id="watt" value="36" min="1" max="2000" step="1" placeholder="Watt">
+            <span class="input-unit right">W</span>
+            <div class="input-stepper">
+              <button onclick="step('watt',1)">▲</button>
+              <button onclick="step('watt',-1)">▼</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lamp efficiency read-only display -->
+        <div class="lamp-eff-display">
+          <div class="led-row">
+            <div class="led-item">
+              <div class="led-item-label">Efisiensi Lampu</div>
+              <div class="led-item-value cyan" id="lampEff">83 lm/W</div>
+            </div>
+            <div class="led-divider"></div>
+            <div class="led-item">
+              <div class="led-item-label">Kategori</div>
+              <div class="led-item-value" id="lampCat" style="color:var(--green)">LED Efisien</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CU slider -->
+        <div class="slider-field">
+          <div class="slider-header">
+            <span>Koefisien Utilisasi (CU)</span>
+            <span class="slider-value" id="cuVal">0.60</span>
+          </div>
+          <input type="range" id="CU" min="0.3" max="1.0" step="0.01" value="0.6">
+          <div class="slider-ticks"><span>0.3 Buruk</span><span>0.65</span><span>1.0 Ideal</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Factors & Target -->
+    <div class="card" id="cardFactors">
+      <div class="card-header" onclick="toggleCard('cardFactors')">
+        <div class="card-header-icon cyan">⚙️</div>
+        <h2>Faktor & Target Lux</h2>
+        <span class="card-chevron">▼</span>
+      </div>
+      <div class="card-body">
+        <div class="field-grid">
+          <div class="field">
+            <div class="field-label">LLD</div>
+            <div class="input-wrap">
+              <input type="number" id="LLD" value="0.95" min="0.5" max="1" step="0.01">
+              <div class="input-stepper">
+                <button onclick="step('LLD',0.01)">▲</button>
+                <button onclick="step('LLD',-0.01)">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">LDD</div>
+            <div class="input-wrap">
+              <input type="number" id="LDD" value="0.90" min="0.5" max="1" step="0.01">
+              <div class="input-stepper">
+                <button onclick="step('LDD',0.01)">▲</button>
+                <button onclick="step('LDD',-0.01)">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">RSDD</div>
+            <div class="input-wrap">
+              <input type="number" id="RSDD" value="0.95" min="0.5" max="1" step="0.01">
+              <div class="input-stepper">
+                <button onclick="step('RSDD',0.01)">▲</button>
+                <button onclick="step('RSDD',-0.01)">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">BF</div>
+            <div class="input-wrap">
+              <input type="number" id="BF" value="1.0" min="0.5" max="1.5" step="0.01">
+              <div class="input-stepper">
+                <button onclick="step('BF',0.01)">▲</button>
+                <button onclick="step('BF',-0.01)">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;display:flex;justify-content:space-between">
+          <span style="color:var(--text2)">LLF = LLD × LDD × RSDD × BF</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--cyan)" id="llfDisplay">0.812</span>
+        </div>
+
+        <div class="divider-label">Target Kecerahan</div>
+
+        <div class="slider-field">
+          <div class="slider-header">
+            <span>Target Lux (E)</span>
+            <span class="slider-value" id="luxLabel">500 lux</span>
+          </div>
+          <input type="range" id="targetLux" min="50" max="2000" step="50" value="500">
+          <div class="slider-ticks"><span>50</span><span>500</span><span>1000</span><span>2000</span></div>
+        </div>
+
+        <div class="lux-guide">
+          <div class="lux-chip" onclick="setLux(100)"><div class="lc-name">Koridor</div><div class="lc-val">100</div></div>
+          <div class="lux-chip" onclick="setLux(300)"><div class="lc-name">Lobby</div><div class="lc-val">300</div></div>
+          <div class="lux-chip" onclick="setLux(500)"><div class="lc-name">Kantor</div><div class="lc-val">500</div></div>
+          <div class="lux-chip" onclick="setLux(750)"><div class="lc-name">Studio</div><div class="lc-val">750</div></div>
+          <div class="lux-chip" onclick="setLux(1000)"><div class="lc-name">Lab</div><div class="lc-val">1000</div></div>
+          <div class="lux-chip" onclick="setLux(1500)"><div class="lc-name">Bedah</div><div class="lc-val">1500</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid control -->
+    <div class="card" id="cardGrid">
+      <div class="card-header" onclick="toggleCard('cardGrid')">
+        <div class="card-header-icon green">⚏</div>
+        <h2>Konfigurasi Grid</h2>
+        <span class="card-chevron">▼</span>
+      </div>
+      <div class="card-body">
+        <div class="field-grid">
+          <div class="field">
+            <div class="field-label">Kolom</div>
+            <div class="input-wrap">
+              <input type="number" id="gridCols" value="6" min="1" max="30">
+              <div class="input-stepper">
+                <button onclick="step('gridCols',1);recalc()">▲</button>
+                <button onclick="step('gridCols',-1);recalc()">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Baris</div>
+            <div class="input-wrap">
+              <input type="number" id="gridRows" value="5" min="1" max="30">
+              <div class="input-stepper">
+                <button onclick="step('gridRows',1);recalc()">▲</button>
+                <button onclick="step('gridRows',-1);recalc()">▼</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-sm" style="width:100%;justify-content:center" onclick="autoGrid()">
+          ✨ Auto Optimal Grid
+        </button>
+        <div id="gridInfo" style="font-size:11px;color:var(--text2);text-align:center;padding:4px 0"></div>
+      </div>
+    </div>
+
+    <button class="btn-save" onclick="showToast('✅ Kalkulasi disimpan ke history!','success')">
+      💾 Simpan Kalkulasi
+    </button>
+
+  </aside>
+
+  <!-- ════ CONTENT ════ -->
+  <main class="content">
+
+    <!-- Print-only report header -->
+    <div class="print-report-header" style="display:none">
+      <div class="prh-left">
+        <div class="prh-title" id="printProjectName">Ruang Utama</div>
+        <div class="prh-sub">Laporan Kalkulasi Pencahayaan — Zonal Cavity Method</div>
+      </div>
+      <div class="prh-right">
+        <div class="prh-meta" id="printMeta">10m × 8m × 2.7m | Target: 500 lux</div>
+        <div class="prh-meta" id="printDate2"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid animate-in">
+      <div class="stat-card">
+        <div class="stat-icon gold">🔦</div>
+        <div class="stat-label">Kebutuhan Lampu</div>
+        <div class="stat-value gold" id="statN">28</div>
+        <div class="stat-sub">buah (minimum)</div>
+      </div>
+      <div class="stat-card cyan">
+        <div class="stat-icon cyan">⚏</div>
+        <div class="stat-label">Grid Optimal</div>
+        <div class="stat-value cyan" id="statGrid">6 × 5</div>
+        <div class="stat-sub" id="statGridTotal">30 lampu terpasang</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon green">⚡</div>
+        <div class="stat-label">Kepadatan Daya</div>
+        <div class="stat-value green" id="statPD">13.50</div>
+        <div class="stat-sub">W/m²</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon purple">📊</div>
+        <div class="stat-label">Efisiensi Energi</div>
+        <div class="stat-value purple" id="statEE">2.70</div>
+        <div class="stat-sub">W/m²/100lx</div>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('viz2d',this)">🗺️ <span>Denah 2D</span></button>
+      <button class="tab-btn" onclick="switchTab('viz3d',this)">🏢 <span>Simulasi 3D</span></button>
+      <button class="tab-btn" onclick="switchTab('formula',this)">📐 <span>Rumus</span></button>
+    </div>
+
+    <!-- 2D View -->
+    <div class="tab-panel active" id="tab-viz2d">
+      <div class="viz-container">
+        <div class="viz-toolbar">
+          <h3>🗺️ Denah Pencahayaan 2D</h3>
+          <div class="hspace"></div>
+          <button class="btn-sm active" id="btnHeatmap" onclick="toggleHeatmap(this)">🌡️ Heatmap</button>
+          <button class="btn-sm" onclick="exportCanvas2D()">⬇️ PNG</button>
+        </div>
+        <canvas id="viz2d" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- 3D View -->
+    <div class="tab-panel" id="tab-viz3d">
+      <div id="viz3d-container">
+        <div class="viz-toolbar">
+          <h3>🏢 Simulasi Ruang 3D</h3>
+          <div class="hspace"></div>
+          <span style="font-size:11px;color:var(--text3)">Drag untuk rotasi</span>
+        </div>
+        <canvas id="viz3d" height="420"></canvas>
+        <div class="scene-label" id="scene3dLabel"></div>
+      </div>
+    </div>
+
+    <!-- Formula -->
+    <div class="tab-panel" id="tab-formula" style="position:relative">
+      <div class="formula-grid">
+        <div class="formula-card">
+          <div class="formula-card-header">📐 Room Indices</div>
+          <div class="formula-card-body">
+            <div class="formula-box" id="riFormula">RI = (L × W) / (Hm × (L + W))</div>
+            <table>
+              <tr><td>Room Index (RI)</td><td id="riVal">1.78</td></tr>
+              <tr><td>Room Cavity Ratio (RCR)</td><td id="rcrVal">1.52</td></tr>
+              <tr><td>Luas Lantai (A)</td><td id="areaVal">80 m²</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="formula-card">
+          <div class="formula-card-header">🔆 Light Loss Factor</div>
+          <div class="formula-card-body">
+            <div class="formula-box">LLF = LLD × LDD × RSDD × BF</div>
+            <table>
+              <tr><td>LLD (Lamp Lumen Depr.)</td><td id="lldVal">0.95</td></tr>
+              <tr><td>LDD (Dirt Depreciation)</td><td id="lddVal">0.90</td></tr>
+              <tr><td>RSDD (Room Surface)</td><td id="rsddVal">0.95</td></tr>
+              <tr><td>BF (Ballast Factor)</td><td id="bfVal">1.00</td></tr>
+              <tr class="highlight"><td><strong>LLF (Total)</strong></td><td id="llfVal">0.812</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="formula-card" style="grid-column:1/-1">
+          <div class="formula-card-header">🔢 Kalkulasi Utama — Zonal Cavity Method</div>
+          <div class="formula-card-body">
+            <div class="formula-box">N = (E × A) / (LLF × CU × F)</div>
+            <div class="calc-step"><span class="calc-step-label">E × A (Total Lumens Target)</span><span class="calc-step-value" id="cs1">40,000 lm</span></div>
+            <div class="calc-step"><span class="calc-step-label">LLF × CU × F (Efisiensi per Luminaire)</span><span class="calc-step-value" id="cs2">1,462.0 lm</span></div>
+            <div class="calc-step"><span class="calc-step-label">Lampu Teoretis (N = target/efisiensi)</span><span class="calc-step-value" id="cs3">27.36 pcs</span></div>
+            <div class="calc-step final"><span class="calc-step-label">⚡ Dibulatkan (N minimum)</span><span class="calc-step-value" id="cs4">28 pcs</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print footer (only visible in print) -->
+    <div class="print-footer" style="display:none">
+      <span>LuxCalc — Lighting Design Studio | revitlighting.vercel.app</span>
+      <span id="printDate"></span>
+    </div>
+
+    <!-- Export -->
+    <div class="export-row">
+      <h3>⬇️ Export</h3>
+      <div class="hspace"></div>
+      <button class="btn-export pdf" onclick="exportPDF()">📄 PDF</button>
+      <button class="btn-export png" onclick="exportCanvas2D()">🖼️ PNG</button>
+      <button class="btn-export dxf" onclick="exportDXF()">📐 DXF</button>
+      <button class="btn-export json" onclick="exportJSON()">📋 JSON</button>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── State ───
+let showHeatmap = true;
+let angle3d = { x: -25, y: 30 };
+let drag3d = { active: false, lx: 0, ly: 0 };
+
+// ─── Helpers ───
+const $ = id => document.getElementById(id);
+function fmt(n, d=2) { return Number(n).toFixed(d); }
+function fmtK(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : n; }
+
+function step(id, delta) {
+  const el = $(id);
+  el.value = parseFloat(el.value) + delta;
+  el.dispatchEvent(new Event('input'));
+}
+
+function toggleCard(id) {
+  $(id).classList.toggle('collapsed');
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  $('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+  if (tab === 'viz3d') { setTimeout(draw3D, 50); }
+  if (tab === 'viz2d') { setTimeout(draw2D, 50); }
+}
+
+function showToast(msg, type='info') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function setLux(val) {
+  $('targetLux').value = val;
+  $('targetLux').dispatchEvent(new Event('input'));
+  showToast(`Target lux diset ke ${val} lux`, 'info');
+}
+
+function toggleHeatmap(btn) {
+  showHeatmap = !showHeatmap;
+  btn.classList.toggle('active', showHeatmap);
+  draw2D();
+}
+
+function autoGrid() {
+  const { nMin } = calc();
+  const best = findBestGrid(nMin);
+  $('gridCols').value = best[0];
+  $('gridRows').value = best[1];
+  recalc();
+  showToast(`Grid optimal: ${best[0]} × ${best[1]} (${best[0]*best[1]} lampu)`, 'success');
+}
+
+// ─── Calculations ───
+function calc() {
+  const L = parseFloat($('L').value) || 10;
+  const W = parseFloat($('W').value) || 8;
+  const H = parseFloat($('H').value) || 2.7;
+  const Hm = parseFloat($('Hm').value) || 2.5;
+  const F = parseFloat($('flux').value) || 3000;
+  const watt = parseFloat($('watt').value) || 36;
+  const CU = parseFloat($('CU').value) || 0.6;
+  const LLD = parseFloat($('LLD').value) || 0.95;
+  const LDD = parseFloat($('LDD').value) || 0.90;
+  const RSDD = parseFloat($('RSDD').value) || 0.95;
+  const BF = parseFloat($('BF').value) || 1.0;
+  const E = parseFloat($('targetLux').value) || 500;
+
+  const A = L * W;
+  const volume = L * W * H;
+  const RI = (L * W) / (Hm * (L + W));
+  const RCR = 2.5 * H * (L + W) / (L * W);
+  const LLF = LLD * LDD * RSDD * BF;
+  const effPerLuminaire = LLF * CU * F;
+  const nRaw = (E * A) / effPerLuminaire;
+  const nMin = Math.ceil(nRaw);
+  const cols = parseInt($('gridCols').value) || 6;
+  const rows = parseInt($('gridRows').value) || 5;
+  const nActual = cols * rows;
+  const totalWatt = nActual * watt;
+  const PD = totalWatt / A;
+  const EE = PD / (E / 100);
+  const luxActual = (nActual * LLF * CU * F) / A;
+  const lampEff = F / watt;
+
+  return { L, W, H, Hm, F, watt, CU, LLD, LDD, RSDD, BF, E,
+           A, volume, RI, RCR, LLF, nRaw, nMin, cols, rows, nActual,
+           totalWatt, PD, EE, luxActual, lampEff, effPerLuminaire };
+}
+
+function findBestGrid(n) {
+  let best = [1, n], bestScore = Infinity;
+  for (let c = 1; c <= n; c++) {
+    const r = Math.ceil(n / c);
+    const total = c * r;
+    const ratio = Math.max(c/r, r/c);
+    const score = ratio + total * 0.01;
+    if (score < bestScore) { bestScore = score; best = [c, r]; }
+  }
+  return best;
+}
+
+function recalc() {
+  const d = calc();
+
+  // Sidebar live labels
+  $('lVal').textContent = d.L;
+  $('wVal').textContent = d.W;
+  $('hVal').textContent = d.H;
+  $('hmVal').textContent = d.Hm;
+  $('areaDisplay').textContent = fmt(d.A, 1) + ' m²';
+  $('volDisplay').textContent = fmt(d.volume, 0) + ' m³';
+  $('fluxLabel').textContent = fmtK(d.F) + ' lm';
+  $('lampEff').textContent = fmt(d.lampEff, 0) + ' lm/W';
+  const cat = d.lampEff >= 130 ? 'Premium LED' : d.lampEff >= 90 ? 'LED Efisien' : d.lampEff >= 60 ? 'LED Standar' : d.lampEff >= 30 ? 'Fluorescent' : 'Halogen/Pijar';
+  const catColor = d.lampEff >= 130 ? 'var(--gold)' : d.lampEff >= 90 ? 'var(--green)' : d.lampEff >= 60 ? 'var(--cyan)' : d.lampEff >= 30 ? 'var(--text2)' : 'var(--red)';
+  $('lampCat').textContent = cat;
+  $('lampCat').style.color = catColor;
+  $('cuVal').textContent = fmt(d.CU, 2);
+  $('luxLabel').textContent = d.E + ' lux';
+  $('llfDisplay').textContent = fmt(d.LLF, 3);
+
+  // Update slider gradient
+  updateSliderFill($('flux'), 500, 20000);
+  updateSliderFill($('CU'), 0.3, 1.0);
+  updateSliderFill($('targetLux'), 50, 2000);
+
+  // Update print header
+  $('printProjectName').textContent = $('projectName').value || 'Proyek';
+  $('printMeta').textContent = `${d.L}m × ${d.W}m × ${d.H}m | Target: ${d.E} lux | LLF: ${fmt(d.LLF,3)} | CU: ${fmt(d.CU,2)}`;
+  const now = new Date();
+  $('printDate').textContent = now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  $('printDate2').textContent = now.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Stats
+  animateNum('statN', d.nMin, 0);
+  $('statGrid').textContent = d.cols + ' × ' + d.rows;
+  $('statGridTotal').textContent = d.nActual + ' lampu terpasang';
+  animateNum('statPD', d.PD, 2);
+  animateNum('statEE', d.EE, 2);
+
+  // Grid info
+  const diff = d.nActual - d.nMin;
+  $('gridInfo').textContent = diff >= 0
+    ? `✅ ${d.nActual} terpasang (+${diff} cadangan)`
+    : `⚠️ ${d.nActual} terpasang (kurang ${-diff})`;
+
+  // Formula tab
+  $('riVal').textContent = fmt(d.RI, 2);
+  $('rcrVal').textContent = fmt(d.RCR, 2);
+  $('areaVal').textContent = fmt(d.A, 1) + ' m²';
+  $('lldVal').textContent = fmt(d.LLD, 2);
+  $('lddVal').textContent = fmt(d.LDD, 2);
+  $('rsddVal').textContent = fmt(d.RSDD, 2);
+  $('bfVal').textContent = fmt(d.BF, 2);
+  $('llfVal').textContent = fmt(d.LLF, 3);
+  $('cs1').textContent = (d.E * d.A).toLocaleString('id') + ' lm';
+  $('cs2').textContent = fmt(d.effPerLuminaire, 1) + ' lm';
+  $('cs3').textContent = fmt(d.nRaw, 2) + ' pcs';
+  $('cs4').textContent = d.nMin + ' pcs';
+
+  draw2D();
+  if ($('tab-viz3d').classList.contains('active')) draw3D();
+}
+
+function animateNum(id, val, decimals) {
+  const el = $(id);
+  el.textContent = fmt(val, decimals);
+  el.classList.remove('num-update');
+  void el.offsetWidth;
+  el.classList.add('num-update');
+}
+
+function updateSliderFill(el, min, max) {
+  const pct = ((el.value - min) / (max - min)) * 100;
+  el.style.background = `linear-gradient(to right, var(--gold) ${pct}%, var(--surface3) ${pct}%)`;
+}
+
+// ─── 2D Canvas ───
+function draw2D() {
+  const canvas = $('viz2d');
+  const ctx = canvas.getContext('2d');
+  const d = calc();
+  const pad = 40;
+  const W = canvas.offsetWidth;
+  const H = 460;
+  canvas.width = W;
+  canvas.height = H;
+
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  ctx.fillStyle = isDark ? '#111318' : '#f5f6fa';
+  ctx.fillRect(0, 0, W, H);
+
+  const legendSpace = 75; // space for colorbar legend below room
+  const scaleX = (W - pad*2) / d.L;
+  const scaleY = (H - pad*2 - legendSpace) / d.W;
+  const scale = Math.min(scaleX, scaleY);
+  const rW = d.L * scale;
+  const rH = d.W * scale;
+  const ox = (W - rW) / 2;
+  const oy = pad + (H - pad*2 - legendSpace - rH) / 2;
+
+  const cols = d.cols, rows = d.rows;
+  const spaceX = rW / cols;
+  const spaceY = rH / rows;
+
+  // Heatmap
+  if (showHeatmap) {
+    const res = 80;
+    const imgData = ctx.createImageData(Math.floor(rW), Math.floor(rH));
+    for (let py = 0; py < Math.floor(rH); py++) {
+      for (let px = 0; px < Math.floor(rW); px++) {
+        let total = 0;
+        for (let c = 0; c < cols; c++) {
+          for (let r = 0; r < rows; r++) {
+            const lx = (c + 0.5) * spaceX;
+            const ly = (r + 0.5) * spaceY;
+            const dx = px - lx, dy = py - ly;
+            const dist = Math.sqrt(dx*dx + dy*dy) / scale;
+            total += d.F * d.LLF * d.CU / (Math.PI * (dist * dist + 1));
+          }
+        }
+        const norm = Math.min(total / (d.E * 3), 1);
+        const idx = (py * Math.floor(rW) + px) * 4;
+        // Color: dark blue → cyan → yellow → white
+        if (norm < 0.33) {
+          imgData.data[idx]   = 0;
+          imgData.data[idx+1] = Math.floor(norm * 3 * 200);
+          imgData.data[idx+2] = Math.floor(100 + norm * 3 * 155);
+        } else if (norm < 0.66) {
+          const t = (norm - 0.33) * 3;
+          imgData.data[idx]   = Math.floor(t * 245);
+          imgData.data[idx+1] = Math.floor(200 - t * 50);
+          imgData.data[idx+2] = Math.floor(255 * (1-t));
+        } else {
+          const t = (norm - 0.66) * 3;
+          imgData.data[idx]   = 245;
+          imgData.data[idx+1] = Math.floor(200 + t * 55);
+          imgData.data[idx+2] = Math.floor(t * 255);
+        }
+        imgData.data[idx+3] = 210;
+      }
+    }
+    ctx.putImageData(imgData, ox, oy);
+  }
+
+  // Room border
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ox, oy, rW, rH);
+
+  // Grid lines (light)
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([4, 4]);
+  for (let c = 1; c < cols; c++) {
+    ctx.beginPath(); ctx.moveTo(ox + c*spaceX, oy); ctx.lineTo(ox + c*spaceX, oy+rH); ctx.stroke();
+  }
+  for (let r = 1; r < rows; r++) {
+    ctx.beginPath(); ctx.moveTo(ox, oy + r*spaceY); ctx.lineTo(ox+rW, oy + r*spaceY); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Lights
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      const lx = ox + (c + 0.5) * spaceX;
+      const ly = oy + (r + 0.5) * spaceY;
+      const radius = Math.max(Math.min(spaceX, spaceY) * 0.22, 1);
+
+      // Glow
+      const grd = ctx.createRadialGradient(lx, ly, 0, lx, ly, radius * 3);
+      grd.addColorStop(0, 'rgba(245,200,66,.35)');
+      grd.addColorStop(1, 'rgba(245,200,66,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(lx, ly, radius * 3, 0, Math.PI*2);
+      ctx.fill();
+
+      // Body
+      ctx.fillStyle = '#f5c842';
+      ctx.beginPath();
+      ctx.arc(lx, ly, radius, 0, Math.PI*2);
+      ctx.fill();
+
+      // Center dot
+      if (radius > 3) {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(lx, ly, Math.max(radius * 0.35, 0.5), 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Dimension labels
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)';
+  ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(d.L + ' m', ox + rW/2, oy - 12);
+  ctx.save();
+  ctx.translate(ox - 14, oy + rH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText(d.W + ' m', 0, 0);
+  ctx.restore();
+
+  // Lux info overlay (top-right inside room)
+  ctx.fillStyle = isDark ? 'rgba(245,200,66,.85)' : 'rgba(160,90,0,.85)';
+  ctx.font = 'bold 11px Inter, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Target: ' + d.E + ' lux', ox + rW - 6, oy + 16);
+
+  // ── Illuminance Distribution Legend ──
+  const lgW = Math.min(rW * 0.9, 320);
+  const lgH = 22;
+  const lgX = ox + (rW - lgW) / 2;
+  const lgY = oy + rH + 18;
+
+  // Background panel
+  const panelPad = 14;
+  const panelH = lgH + 38;
+  ctx.fillStyle = isDark ? 'rgba(13,15,22,.88)' : 'rgba(240,242,248,.92)';
+  ctx.beginPath();
+  ctx.roundRect(lgX - panelPad, lgY - 22, lgW + panelPad*2, panelH, 10);
+  ctx.fill();
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Title
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.65)';
+  ctx.font = 'bold 10px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('🌈  ILLUMINANCE DISTRIBUTION', lgX - panelPad + 10, lgY - 8);
+
+  // Gradient bar
+  const grad = ctx.createLinearGradient(lgX, 0, lgX + lgW, 0);
+  grad.addColorStop(0,    '#0a0e2a');
+  grad.addColorStop(0.15, '#0d2060');
+  grad.addColorStop(0.35, '#7b1fa2');
+  grad.addColorStop(0.55, '#e53935');
+  grad.addColorStop(0.72, '#ff8f00');
+  grad.addColorStop(0.88, '#fdd835');
+  grad.addColorStop(1,    '#ffffff');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(lgX, lgY, lgW, lgH, 5);
+  ctx.fill();
+
+  // Tick marks
+  const tickColor = isDark ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.25)';
+  ctx.strokeStyle = tickColor;
+  ctx.lineWidth = 1;
+  [0, 0.25, 0.5, 0.75, 1].forEach(t => {
+    const tx = lgX + t * lgW;
+    ctx.beginPath(); ctx.moveTo(tx, lgY + lgH); ctx.lineTo(tx, lgY + lgH + 4); ctx.stroke();
+  });
+
+  // Compute actual avg and max lux on floor
+  const avgLux = Math.round((d.nActual * d.LLF * d.CU * d.F) / d.A);
+  const maxLux = Math.round(avgLux * 1.30); // center-point is ~30% above avg
+
+  // Labels
+  ctx.font = '10px Inter, sans-serif';
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,.65)' : 'rgba(0,0,0,.6)';
+  ctx.textAlign = 'left';
+  ctx.fillText('0 Lx (Min)', lgX, lgY + lgH + 15);
+  ctx.textAlign = 'center';
+  ctx.fillText('Avg (' + avgLux + ' Lx)', lgX + lgW * 0.5, lgY + lgH + 15);
+  ctx.textAlign = 'right';
+  ctx.fillText('Max (' + maxLux + ' Lx)', lgX + lgW, lgY + lgH + 15);
+}
+
+// ─── 3D Canvas ───
+function draw3D() {
+  const canvas = $('viz3d');
+  const ctx = canvas.getContext('2d');
+  const CW = canvas.offsetWidth || canvas.parentElement.offsetWidth || 680;
+  const CH = 420;
+  canvas.width = CW;
+  canvas.height = CH;
+
+  const d = calc();
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+  ctx.fillStyle = isDark ? '#0d1117' : '#f0f2f7';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Stars bg
+  if (isDark) {
+    const seed = 42;
+    for (let i = 0; i < 70; i++) {
+      const sx = ((i * 137 + 11) % CW);
+      const sy = ((i * 89 + 7) % (CH * 0.6));
+      ctx.fillStyle = `rgba(255,255,255,${0.05 + (i%5)*0.04})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, (i%3)*0.6+0.3, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Isometric projection: rotate about Y then X
+  const ay = angle3d.y * Math.PI / 180;
+  const ax = angle3d.x * Math.PI / 180;
+  const maxDim = Math.max(d.L, d.W);
+  const scale = Math.min(CW * 0.55, CH * 0.55) / maxDim;
+
+  function project(x, y, z) {
+    // Center the room
+    const rx = x - d.L / 2;
+    const ry = y - d.W / 2;
+    const rz = z;
+    // Rotate about Z (horizontal spin)
+    const rx2 = rx * Math.cos(ay) - ry * Math.sin(ay);
+    const ry2 = rx * Math.sin(ay) + ry * Math.cos(ay);
+    // Tilt (rotate about X)
+    const ry3 = ry2 * Math.cos(ax) - rz * Math.sin(ax);
+    const rz3 = ry2 * Math.sin(ax) + rz * Math.cos(ax);
+    return {
+      sx: CW / 2 + rx2 * scale,
+      sy: CH * 0.52 + ry3 * scale - rz3 * scale * 0.5,
+    };
+  }
+
+  const corners = [
+    [0,0,0],[d.L,0,0],[d.L,d.W,0],[0,d.W,0],
+    [0,0,d.H],[d.L,0,d.H],[d.L,d.W,d.H],[0,d.W,d.H]
+  ];
+
+  const facesDef = [
+    { v:[3,2,1,0], base: isDark ? [25,30,60] : [180,190,220] }, // floor
+    { v:[4,5,6,7], base: isDark ? [18,22,50] : [210,218,235] }, // ceiling
+    { v:[0,1,5,4], base: isDark ? [22,27,55] : [185,195,218] }, // near Y=0
+    { v:[2,3,7,6], base: isDark ? [15,20,45] : [175,185,210] }, // far Y=W
+    { v:[3,0,4,7], base: isDark ? [20,25,52] : [190,200,225] }, // left X=0
+    { v:[1,2,6,5], base: isDark ? [28,33,60] : [195,205,228] }, // right X=L
+  ];
+
+  facesDef.forEach(f => {
+    const pts = f.v.map(i => project(...corners[i]));
+    ctx.beginPath();
+    ctx.moveTo(pts[0].sx, pts[0].sy);
+    pts.slice(1).forEach(p => ctx.lineTo(p.sx, p.sy));
+    ctx.closePath();
+    const [r,g,b] = f.base;
+    ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+    ctx.fill();
+    ctx.strokeStyle = isDark ? 'rgba(100,140,255,.12)' : 'rgba(80,100,160,.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Floor grid lines
+  const gc = d.cols, gr = d.rows;
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)';
+  ctx.lineWidth = 0.5;
+  for (let c = 1; c < gc; c++) {
+    const x = d.L * c / gc;
+    const p1 = project(x, 0, 0), p2 = project(x, d.W, 0);
+    ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+  }
+  for (let r = 1; r < gr; r++) {
+    const y = d.W * r / gr;
+    const p1 = project(0, y, 0), p2 = project(d.L, y, 0);
+    ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+  }
+
+  // Luminaires & light cones
+  for (let c = 0; c < gc; c++) {
+    for (let r = 0; r < gr; r++) {
+      const lx3 = d.L * (c + 0.5) / gc;
+      const ly3 = d.W * (r + 0.5) / gr;
+      const lp = project(lx3, ly3, d.Hm);
+      const fp = project(lx3, ly3, 0);
+
+      // Light cone
+      const grd = ctx.createLinearGradient(lp.sx, lp.sy, fp.sx, fp.sy);
+      grd.addColorStop(0, 'rgba(245,200,66,.5)');
+      grd.addColorStop(0.5, 'rgba(245,200,66,.12)');
+      grd.addColorStop(1, 'rgba(245,200,66,0)');
+      const cw = Math.max(4, scale * d.L / gc * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(lp.sx, lp.sy);
+      ctx.lineTo(fp.sx - cw, fp.sy);
+      ctx.lineTo(fp.sx + cw, fp.sy);
+      ctx.closePath();
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // Floor glow
+      const fg = ctx.createRadialGradient(fp.sx, fp.sy, 0, fp.sx, fp.sy, cw * 1.5);
+      fg.addColorStop(0, 'rgba(245,200,66,.25)');
+      fg.addColorStop(1, 'rgba(245,200,66,0)');
+      ctx.beginPath();
+      ctx.ellipse(fp.sx, fp.sy, cw * 1.5, cw * 0.6, 0, 0, Math.PI * 2);
+      ctx.fillStyle = fg;
+      ctx.fill();
+
+      // Fixture
+      ctx.fillStyle = '#f5c842';
+      ctx.beginPath(); ctx.arc(lp.sx, lp.sy, 4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(lp.sx, lp.sy, 2, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  $('scene3dLabel').textContent = `${d.L}m × ${d.W}m × ${d.H}m — ${d.nActual} luminaire`;
+}
+
+// ─── 3D Drag ───
+function init3DDrag() {
+  const c = $('viz3d');
+  c.addEventListener('mousedown', e => { drag3d.active=true; drag3d.lx=e.clientX; drag3d.ly=e.clientY; });
+  window.addEventListener('mousemove', e => {
+    if (!drag3d.active) return;
+    angle3d.y += (e.clientX - drag3d.lx) * 0.4;
+    angle3d.x += (e.clientY - drag3d.ly) * 0.3;
+    drag3d.lx = e.clientX; drag3d.ly = e.clientY;
+    draw3D();
+  });
+  window.addEventListener('mouseup', () => drag3d.active = false);
+  c.addEventListener('touchstart', e => { drag3d.active=true; drag3d.lx=e.touches[0].clientX; drag3d.ly=e.touches[0].clientY; });
+  window.addEventListener('touchmove', e => {
+    if (!drag3d.active) return;
+    angle3d.y += (e.touches[0].clientX - drag3d.lx) * 0.4;
+    drag3d.lx = e.touches[0].clientX;
+    draw3D();
+  });
+  window.addEventListener('touchend', () => drag3d.active = false);
+}
+
+// ─── Export ───
+function exportCanvas2D() {
+  const d = calc();
+  draw2D();
+  const a = document.createElement('a');
+  a.href = $('viz2d').toDataURL('image/png');
+  a.download = `LuxCalc_${$('projectName').value}_${d.L}x${d.W}.png`;
+  a.click();
+  showToast('🖼️ PNG berhasil diunduh!', 'success');
+}
+
+function exportJSON() {
+  const d = calc();
+  const data = {
+    project: $('projectName').value,
+    date: new Date().toISOString(),
+    room: { L: d.L, W: d.W, H: d.H, Hm: d.Hm, area: d.A },
+    lamp: { flux: d.F, watt: d.watt, CU: d.CU },
+    factors: { LLD: d.LLD, LDD: d.LDD, RSDD: d.RSDD, BF: d.BF, LLF: d.LLF },
+    target: { lux: d.E },
+    result: { nMin: d.nMin, grid: [d.cols, d.rows], nActual: d.nActual, PD: d.PD, EE: d.EE }
+  };
+  const a = document.createElement('a');
+  a.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(data, null, 2));
+  a.download = `LuxCalc_${$('projectName').value}.json`;
+  a.click();
+  showToast('📋 JSON berhasil diunduh!', 'success');
+}
+
+function exportDXF() {
+  const d = calc();
+  let dxf = `0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n`;
+  // Room border
+  dxf += `0\nLWPOLYLINE\n8\nROOM\n70\n1\n90\n4\n`;
+  dxf += `10\n0\n20\n0\n10\n${d.L}\n20\n0\n10\n${d.L}\n20\n${d.W}\n10\n0\n20\n${d.W}\n`;
+  // Luminaires
+  for (let c = 0; c < d.cols; c++) {
+    for (let r = 0; r < d.rows; r++) {
+      const lx = d.L * (c + 0.5) / d.cols;
+      const ly = d.W * (r + 0.5) / d.rows;
+      dxf += `0\nCIRCLE\n8\nLUMINAIRE\n10\n${lx.toFixed(3)}\n20\n${ly.toFixed(3)}\n30\n0\n40\n0.2\n`;
+    }
+  }
+  dxf += `0\nENDSEC\n0\nEOF`;
+  const a = document.createElement('a');
+  a.href = 'data:text/plain,' + encodeURIComponent(dxf);
+  a.download = `LuxCalc_${$('projectName').value}.dxf`;
+  a.click();
+  showToast('📐 DXF berhasil diunduh!', 'success');
+}
+
+function exportPDF() {
+  // Set print date
+  $('printDate').textContent = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+
+  // Make sure 2D tab is active so canvas is rendered
+  const activeTab = document.querySelector('.tab-btn.active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  $('tab-viz2d').classList.add('active');
+  document.querySelectorAll('.tab-btn')[0].classList.add('active');
+
+  // Redraw canvas with white background for print
+  draw2D();
+
+  setTimeout(() => {
+    window.print();
+    // Restore previous tab after print dialog
+    setTimeout(() => {
+      if (activeTab) activeTab.click();
+    }, 500);
+  }, 150);
+
+  showToast('🖨️ Membuka dialog cetak / PDF...', 'info');
+}
+
+// ─── Theme ───
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  $('themeBtn').textContent = isDark ? '☀️' : '🌙';
+  setTimeout(() => { draw2D(); if ($('tab-viz3d').classList.contains('active')) draw3D(); }, 50);
+}
+$('themeBtn').addEventListener('click', toggleTheme);
+
+// ─── Event listeners ───
+const inputIds = ['L','W','H','Hm','flux','watt','CU','LLD','LDD','RSDD','BF','targetLux','gridCols','gridRows'];
+inputIds.forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('input', recalc);
+});
+
+// Initial slider fills
+['flux','CU','targetLux'].forEach(id => {
+  const el = $(id);
+  if (el) {
+    const [min,max] = id==='flux' ? [500,20000] : id==='CU' ? [0.3,1.0] : [50,2000];
+    updateSliderFill(el, min, max);
+  }
+});
+
+// ─── Print hooks ───
+window.addEventListener('beforeprint', () => {
+  // Force light theme for print so canvas renders with white bg
+  document.documentElement.setAttribute('data-theme', 'light');
+  draw2D();
+});
+window.addEventListener('afterprint', () => {
+  // Restore original theme
+  const wasDark = $('themeBtn').textContent === '☀️';
+  document.documentElement.setAttribute('data-theme', wasDark ? 'dark' : 'light');
+  draw2D();
+});
+
+// ─── Init ───
+window.addEventListener('resize', () => { draw2D(); if ($('tab-viz3d').classList.contains('active')) draw3D(); });
+init3DDrag();
+recalc();
+</script>
+</body>
+</html>
