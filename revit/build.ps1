@@ -49,15 +49,31 @@ function Show-Pemasangan {
             Write-Host "  manifest : $($m.FullName)"
             try {
                 $xml = [xml](Get-Content -LiteralPath $m.FullName -Raw)
-                $asm = $xml.AddIn.Assembly
-                $resolved = if ([IO.Path]::IsPathRooted($asm)) { $asm } else { Join-Path $folder $asm }
-                Write-Host "  Assembly : $asm"
-                if (Test-Path -LiteralPath $resolved) {
-                    Write-Host "  -> DLL ditemukan di $resolved" -ForegroundColor Green
-                } else {
-                    Write-Host "  -> DLL TIDAK ADA di $resolved" -ForegroundColor Red
-                    Write-Host "     Revit akan melewati add-in ini tanpa pesan apa pun." -ForegroundColor Yellow
+
+                # Revit hanya menerima manifest ber-root <RevitAddIns>. Root lain (mis. <AddIn>
+                # langsung) diabaikan total: tab tidak muncul dan tidak ada pesan error.
+                $root = $xml.DocumentElement.Name
+                if ($root -ne "RevitAddIns") {
+                    Write-Host "  -> ROOT SALAH: <$root>, seharusnya <RevitAddIns>." -ForegroundColor Red
+                    Write-Host "     Revit mengabaikan manifest ini tanpa pesan apa pun." -ForegroundColor Yellow
                     $adaMasalah = $true
+                }
+
+                $node = $xml.SelectSingleNode("//AddIn/Assembly")
+                $asm = if ($node) { $node.InnerText } else { "" }
+                if (-not $asm) {
+                    Write-Host "  -> <Assembly> tidak ada di manifest." -ForegroundColor Red
+                    $adaMasalah = $true
+                } else {
+                    $resolved = if ([IO.Path]::IsPathRooted($asm)) { $asm } else { Join-Path $folder $asm }
+                    Write-Host "  Assembly : $asm"
+                    if (Test-Path -LiteralPath $resolved) {
+                        Write-Host "  -> DLL ditemukan di $resolved" -ForegroundColor Green
+                    } else {
+                        Write-Host "  -> DLL TIDAK ADA di $resolved" -ForegroundColor Red
+                        Write-Host "     Revit akan melewati add-in ini tanpa pesan apa pun." -ForegroundColor Yellow
+                        $adaMasalah = $true
+                    }
                 }
             } catch {
                 Write-Host "  -> manifest tidak terbaca: $($_.Exception.Message)" -ForegroundColor Red
@@ -91,9 +107,131 @@ function Remove-Pemasangan {
     }
 }
 
+# Diagnosa lanjutan bila manifest & DLL sudah benar tetapi tab tetap tidak muncul.
+function Show-Diagnosa {
+    # 1) Add-in terpasang untuk versi Revit yang mana saja? (salah tahun = tak akan muncul)
+    Write-Host ""
+    Write-Host "--- Versi Revit yang punya manifest Luxora ---"
+    $adaVersi = $false
+    foreach ($akar in @((Join-Path $env:ProgramData "Autodesk\Revit\Addins"), (Join-Path $env:APPDATA "Autodesk\Revit\Addins"))) {
+        if (-not (Test-Path $akar)) { continue }
+        foreach ($tahun in (Get-ChildItem -Path $akar -Directory -ErrorAction SilentlyContinue)) {
+            if (Test-Path (Join-Path $tahun.FullName "LuxoraRevit.addin")) {
+                Write-Host "  Revit $($tahun.Name) : $($tahun.FullName)"
+                $adaVersi = $true
+            }
+        }
+    }
+    if (-not $adaVersi) { Write-Host "  (tidak ada)" -ForegroundColor Yellow }
+    Write-Host "  -> pastikan Anda membuka Revit versi tsb. (skrip ini menargetkan $RevitVersion)."
+
+    # 2) Berkas ter-blokir Windows (Mark of the Web) — .NET menolak memuatnya.
+    Write-Host ""
+    Write-Host "--- Status blokir berkas (Mark of the Web) ---"
+    foreach ($nama in $addinFolders.Keys) {
+        $folder = $addinFolders[$nama]
+        if (-not (Test-Path $folder)) { continue }
+        foreach ($f in (Get-ChildItem -Path $folder -Filter "LuxoraRevit.*" -ErrorAction SilentlyContinue)) {
+            $blocked = $false
+            try { if (Get-Item -LiteralPath $f.FullName -Stream "Zone.Identifier" -ErrorAction SilentlyContinue) { $blocked = $true } } catch { }
+            if ($blocked) {
+                Write-Host "  TERBLOKIR: $($f.FullName) — dibuka blokirnya sekarang." -ForegroundColor Yellow
+                Unblock-File -LiteralPath $f.FullName -ErrorAction SilentlyContinue
+            } else {
+                Write-Host "  bersih   : $($f.Name)" -ForegroundColor DarkGray
+            }
+        }
+    }
+
+    # 3) DLL terpasang menargetkan runtime apa? Revit 2025 = .NET 8, Revit <= 2024 = .NET Framework 4.8.
+    Write-Host ""
+    Write-Host "--- Target framework DLL terpasang ---"
+    foreach ($nama in $addinFolders.Keys) {
+        $folder = $addinFolders[$nama]
+        $d = Join-Path $folder "LuxoraRevit.dll"
+        if (-not (Test-Path $d)) { continue }
+        $info = Get-Item -LiteralPath $d
+        Write-Host "  $d"
+        Write-Host "    ukuran $([math]::Round($info.Length/1KB)) KB, diubah $($info.LastWriteTime)"
+        try {
+            $teks = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($d))
+            $m = [regex]::Match($teks, '\.NET(CoreApp|Framework),Version=v[0-9.]+')
+            if ($m.Success) { Write-Host "    target: $($m.Value)" } else { Write-Host "    target: (tidak terbaca)" -ForegroundColor Yellow }
+        } catch { Write-Host "    target: (gagal dibaca)" -ForegroundColor Yellow }
+    }
+
+    # 4) Log startup add-in — penentu apakah Revit benar-benar memuat DLL ini.
+    Write-Host ""
+    Write-Host "--- Log startup add-in ---"
+    $log = Join-Path $env:TEMP "LuxoraRevit-startup.log"
+    if (Test-Path $log) {
+        Write-Host "  $log" -ForegroundColor Green
+        Get-Content -LiteralPath $log -Tail 20 | ForEach-Object { Write-Host "    $_" }
+        Write-Host "  -> DLL BERHASIL dimuat Revit. Kalau baris terakhir 'GAGAL', itulah sebabnya." -ForegroundColor Green
+    } else {
+        Write-Host "  Belum ada $log" -ForegroundColor Yellow
+        Write-Host "  -> Revit BELUM PERNAH memuat DLL ini (manifest tidak terbaca, versi Revit lain," -ForegroundColor Yellow
+        Write-Host "     berkas ter-blokir, atau add-in ditolak oleh pengaturan keamanan Revit)." -ForegroundColor Yellow
+        Write-Host "     Catatan: log baru terisi setelah Revit dijalankan dgn add-in versi terbaru." -ForegroundColor DarkGray
+    }
+
+    # 5) Journal Revit — sumber kebenaran soal add-in yang ditolak/gagal dimuat.
+    Write-Host ""
+    Write-Host "--- Journal Revit terbaru (baris yang menyebut Luxora) ---"
+    $journalDir = Join-Path $env:LOCALAPPDATA "Autodesk\Revit\Autodesk Revit $RevitVersion\Journals"
+    if (Test-Path $journalDir) {
+        $jr = Get-ChildItem -Path $journalDir -Filter "journal*.txt" -ErrorAction SilentlyContinue |
+              Sort-Object LastWriteTime -Descending | Select-Object -First 2
+        $ketemu = $false
+        foreach ($j in $jr) {
+            $hits = Select-String -LiteralPath $j.FullName -Pattern "Luxora" -SimpleMatch -ErrorAction SilentlyContinue
+            foreach ($h in $hits) { Write-Host "  [$($j.Name)] $($h.Line.Trim())"; $ketemu = $true }
+        }
+        if (-not $ketemu) {
+            Write-Host "  Tidak ada satu pun baris menyebut Luxora di 2 journal terakhir." -ForegroundColor Yellow
+            Write-Host "  -> Revit tidak pernah mencoba memuat add-in ini. Cek folder & versi di atas." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  Folder journal tidak ada: $journalDir" -ForegroundColor DarkGray
+        Write-Host "  (Revit $RevitVersion mungkin belum pernah dijalankan di akun ini.)" -ForegroundColor DarkGray
+    }
+
+    # 6) Keputusan "Do Not Load" yang pernah dipilih pada dialog add-in tak bertanda tangan
+    #    disimpan Revit di registry, dan sesudahnya add-in dilewati TANPA pesan apa pun.
+    Write-Host ""
+    Write-Host "--- Jejak keputusan add-in di registry (HKCU) ---"
+    $addInId = "8c4e0a2e-9b6f-4d1a-8f2c-6e0d5a3b7c90"
+    $regAkar = "HKCU:\Software\Autodesk\Revit"
+    $jejak = @()
+    if (Test-Path $regAkar) {
+        $kunci = @(Get-Item -LiteralPath $regAkar) + @(Get-ChildItem -Path $regAkar -Recurse -ErrorAction SilentlyContinue)
+        foreach ($k in $kunci) {
+            if ($k.Name -match "Luxora|$addInId") { $jejak += "kunci : $($k.Name)"; continue }
+            $props = Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction SilentlyContinue
+            if (-not $props) { continue }
+            foreach ($pn in $props.PSObject.Properties.Name) {
+                if ($pn -like "PS*") { continue }
+                $nilai = "$($props.$pn)"
+                if ($pn -match "Luxora|$addInId" -or $nilai -match "Luxora|$addInId") {
+                    $jejak += "nilai : $($k.Name) -> $pn = $nilai"
+                }
+            }
+        }
+    }
+    if ($jejak.Count -gt 0) {
+        foreach ($j in $jejak) { Write-Host "  $j" -ForegroundColor Yellow }
+        Write-Host "  -> Bila ini keputusan 'Do Not Load' yang pernah dipilih, hapus nilai/kunci tsb." -ForegroundColor Yellow
+        Write-Host "     lalu jalankan Revit lagi supaya dialog keamanan muncul ulang (pilih Always Load)." -ForegroundColor Yellow
+    } else {
+        Write-Host "  Tidak ada jejak keputusan untuk add-in ini." -ForegroundColor DarkGray
+    }
+    Write-Host ""
+}
+
 if ($Verify) {
     Write-Host "Memeriksa pemasangan add-in Luxora untuk Revit $RevitVersion ..."
     $masalah = Show-Pemasangan
+    Show-Diagnosa
     exit ([int][bool]$masalah)
 }
 
@@ -185,7 +323,16 @@ if ($Install) {
         # Revit selalu menemukan assembly-nya.
         $manifestTujuan = Join-Path $addinFolder "LuxoraRevit.addin"
         $xml = [xml](Get-Content -LiteralPath (Join-Path $root "LuxoraRevit.addin") -Raw)
-        $xml.AddIn.Assembly = $dllTujuan
+        if ($xml.DocumentElement.Name -ne "RevitAddIns") {
+            Write-Host "Manifest sumber rusak: root <$($xml.DocumentElement.Name)>, seharusnya <RevitAddIns>." -ForegroundColor Red
+            exit 1
+        }
+        $node = $xml.SelectSingleNode("//AddIn/Assembly")
+        if (-not $node) {
+            Write-Host "Manifest sumber rusak: elemen <Assembly> tidak ada." -ForegroundColor Red
+            exit 1
+        }
+        $node.InnerText = $dllTujuan
         $xml.Save($manifestTujuan)
 
         # File hasil unduhan bisa ditandai "blocked" oleh Windows sehingga Revit menolak memuatnya.

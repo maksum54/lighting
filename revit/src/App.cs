@@ -15,18 +15,55 @@ namespace LuxoraRevit
         public const string TabName = "Luxora";
         public const string PanelName = "Integrasi";
 
-        public Result OnStartup(UIControlledApplication application)
+        /// <summary>
+        /// Catatan startup di %TEMP%\LuxoraRevit-startup.log. Gunanya untuk membedakan dua
+        /// kegagalan yang sama-sama terlihat "senyap" dari sisi Revit:
+        ///   - berkas log TIDAK ada  → Revit tidak pernah memuat DLL ini (manifest/keamanan/versi).
+        ///   - berkas log ADA        → DLL dimuat; isinya menunjukkan langkah mana yang gagal.
+        /// Menulis log tidak boleh pernah melempar exception.
+        /// </summary>
+        public static string LogPath
+        {
+            get
+            {
+                try { return Path.Combine(Path.GetTempPath(), "LuxoraRevit-startup.log"); }
+                catch { return null; }
+            }
+        }
+
+        internal static void Log(string pesan)
         {
             try
             {
+                string path = LogPath;
+                if (string.IsNullOrEmpty(path)) return;
+                File.AppendAllText(path, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + pesan + Environment.NewLine);
+            }
+            catch { /* logging tidak boleh menggagalkan add-in */ }
+        }
+
+        public Result OnStartup(UIControlledApplication application)
+        {
+            string asmPath = "";
+            try { asmPath = Assembly.GetExecutingAssembly().Location; } catch { }
+            Log("OnStartup mulai — assembly: " + (string.IsNullOrEmpty(asmPath) ? "(tidak diketahui)" : asmPath));
+            try { Log("  Revit " + application.ControlledApplication.VersionNumber + " (" + application.ControlledApplication.VersionBuild + ")"); }
+            catch { }
+
+            try
+            {
                 // Tab boleh sudah ada (mis. add-in dimuat ulang); jangan crash.
-                try { application.CreateRibbonTab(TabName); }
-                catch (Autodesk.Revit.Exceptions.ArgumentException) { /* tab sudah ada */ }
+                try { application.CreateRibbonTab(TabName); Log("  tab '" + TabName + "' dibuat"); }
+                catch (Autodesk.Revit.Exceptions.ArgumentException) { Log("  tab '" + TabName + "' sudah ada"); }
 
                 RibbonPanel panel = GetOrCreatePanel(application);
-                if (panel == null) return Result.Failed;
-
-                string asmPath = Assembly.GetExecutingAssembly().Location;
+                if (panel == null)
+                {
+                    Log("  GAGAL: panel '" + PanelName + "' tidak bisa dibuat.");
+                    TaskDialog.Show("Luxora — gagal memuat", "Panel Ribbon '" + PanelName + "' tidak bisa dibuat.");
+                    return Result.Failed;
+                }
+                Log("  panel '" + PanelName + "' siap");
 
                 PushButtonData btn = new PushButtonData(
                     "LuxoraCalc",
@@ -50,10 +87,13 @@ namespace LuxoraRevit
                                       "4) Lampu dipasang otomatis; yang berada di luar boundary room/space dihapus.";
 
                 panel.AddItem(btn);
+                Log("  tombol ditambahkan — OnStartup selesai (tab '" + TabName + "' siap dipakai)");
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
+                Log("  GAGAL: " + ex.GetType().Name + " — " + ex.Message);
+                Log(ex.StackTrace ?? "");
                 TaskDialog.Show("Luxora — gagal memuat", "Terjadi kesalahan saat memuat add-in:\n" + ex.Message);
                 return Result.Failed;
             }
@@ -71,6 +111,7 @@ namespace LuxoraRevit
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            Log("OnShutdown");
             return Result.Succeeded;
         }
     }

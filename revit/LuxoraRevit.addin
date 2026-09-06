@@ -3,14 +3,22 @@
   Manifest add-in Luxora untuk Autodesk Revit 2025.
   Salin file ini ke:
     C:\ProgramData\Autodesk\Revit\Addins\2025\LuxoraRevit.addin
-  dan pastikan Assembly (LuxoraRevit.dll hasil build) ada di folder yg sama dgn
-  FullClassName dgn Assembly berada. Ubah <Assembly> bila menaruh DLL di folder lain.
+  (atau %AppData%\Autodesk\Revit\Addins\2025\ untuk satu pengguna saja)
+
+  PENTING:
+  - Elemen root WAJIB <RevitAddIns>. Berkas .addin tanpa pembungkus ini diabaikan
+    Revit tanpa pesan apa pun: tab tidak muncul dan tidak ada notifikasi error.
+  - <Assembly> dibaca RELATIF terhadap folder tempat berkas .addin ini berada, jadi
+    LuxoraRevit.dll harus ada di folder yang sama. Untuk menaruh DLL di tempat lain,
+    tulis path lengkapnya (build.ps1 -Install melakukan ini otomatis).
 -->
-<AddIn Type="Application">
-  <Name>Luxora Lighting Integration</Name>
-  <Assembly>LuxoraRevit.dll</Assembly>
-  <FullClassName>LuxoraRevit.App</FullClassName>
-  <AddInId>8c4e0a2e-9b6f-4d1a-8f2c-6e0d5a3b7c90</AddInId>
-  <VendorId>Luxora</VendorId>
-  <VendorDescription>Luxora Lighting Design Studio — maksum54/lighting</VendorDescription>
-</AddIn>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Luxora Lighting Integration</Name>
+    <Assembly>LuxoraRevit.dll</Assembly>
+    <FullClassName>LuxoraRevit.App</FullClassName>
+    <AddInId>8c4e0a2e-9b6f-4d1a-8f2c-6e0d5a3b7c90</AddInId>
+    <VendorId>Luxora</VendorId>
+    <VendorDescription>Luxora Lighting Design Studio — maksum54/lighting</VendorDescription>
+  </AddIn>
+</RevitAddIns>
