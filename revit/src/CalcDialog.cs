@@ -89,13 +89,13 @@ namespace LuxoraRevit
             left.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             string roomName = "";
-            if (_room is Architecture.Room r) roomName = r.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? "";
-            else if (_room is Mechanical.Space sp) roomName = sp.Name ?? "";
+            if (_room is Room r) roomName = r.get_Parameter(BuiltInParameter.ROOM_NAME)?.AsString() ?? "";
+            else if (_room is Space sp) roomName = sp.Name ?? "";
             Level level = _room.LevelId != null && _room.LevelId != ElementId.InvalidElementId ? _doc.GetElement(_room.LevelId) as Level : null;
             LevelName = level?.Name ?? "";
 
             AddInfo(left, "Ruangan", string.IsNullOrWhiteSpace(roomName) ? "(tanpa nama)" : roomName, true);
-            AddInfo(left, "Tipe ruang", _room is Architecture.Room ? "Room" : "Space", true);
+            AddInfo(left, "Tipe ruang", _room is Room ? "Room" : "Space", true);
             AddInfo(left, "Luas", _geo.AreaM2.ToString("0.0") + " m²", true);
 
             AddLabel(left, "Panjang terukur (m)");
