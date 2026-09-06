@@ -750,6 +750,20 @@ body::before {
 .divider-label::before, .divider-label::after {
   content: ''; flex: 1; height: 1px; background: var(--border);
 }
+.ai-card { margin-top: 18px; }
+.ai-card-head { display:flex; align-items:center; gap:10px; padding:16px 18px 12px; border-bottom:1px solid var(--border); }
+.ai-card-head h3 { font-size:13px; }
+.ai-status { margin-left:auto; font-size:10px; color:var(--text3); }
+.ai-messages { min-height:130px; max-height:260px; overflow:auto; padding:14px 18px; display:flex; flex-direction:column; gap:10px; }
+.ai-msg { max-width:86%; padding:10px 12px; border-radius:12px; font-size:12px; white-space:pre-wrap; }
+.ai-msg.bot { align-self:flex-start; background:var(--surface2); color:var(--text2); border:1px solid var(--border); }
+.ai-msg.user { align-self:flex-end; background:var(--gold-dim); color:var(--text); border:1px solid rgba(245,200,66,.2); }
+.ai-compose { display:flex; gap:8px; padding:0 18px 16px; }
+.ai-compose input { flex:1; min-width:0; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; color:var(--text); font:inherit; font-size:12px; }
+.ai-compose input:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-dim); }
+.ai-send { padding:0 14px; border-radius:var(--radius-sm); background:var(--gold); color:#17120a; font-size:12px; font-weight:700; }
+.ai-send:disabled { opacity:.55; cursor:wait; }
+@media (max-width:707px) { .ai-compose { padding-left:12px; padding-right:12px; } }
 </style>
 </head>
 <body>
@@ -1155,6 +1169,22 @@ body::before {
       <span id="printDate"></span>
     </div>
 
+    <!-- AI Assistant -->
+    <section class="viz-container ai-card" aria-labelledby="aiTitle">
+      <div class="ai-card-head">
+        <span class="card-header-icon gold">✨</span>
+        <h3 id="aiTitle">Tanya AI tentang lampu</h3>
+        <span class="ai-status" id="aiStatus">Siap membantu</span>
+      </div>
+      <div class="ai-messages" id="aiMessages" aria-live="polite">
+        <div class="ai-msg bot">Halo! Saya bisa membantu memilih jenis lampu, warna cahaya, lumen, watt, posisi fixture, dan membaca hasil kalkulasi ini. Apa yang ingin kamu tanyakan?</div>
+      </div>
+      <form class="ai-compose" id="aiForm">
+        <input id="aiInput" autocomplete="off" placeholder="Contoh: lampu apa yang cocok untuk kantor 500 lux?" aria-label="Pertanyaan tentang lampu">
+        <button class="ai-send" id="aiSend" type="submit">Kirim</button>
+      </form>
+    </section>
+
     <!-- Export -->
     <div class="export-row">
       <h3>⬇️ Export</h3>
@@ -1201,6 +1231,49 @@ function switchTab(tab, btn) {
   if (tab === 'viz3d') { setTimeout(draw3D, 50); }
   if (tab === 'viz2d') { setTimeout(draw2D, 50); }
 }
+
+function addAiMessage(text, role='bot') {
+  const el = document.createElement('div');
+  el.className = 'ai-msg ' + role;
+  el.textContent = text;
+  $('aiMessages').appendChild(el);
+  $('aiMessages').scrollTop = $('aiMessages').scrollHeight;
+}
+
+function localAiReply(question, d) {
+  const q = question.toLowerCase();
+  if (q.includes('watt') || q.includes('daya')) return `Untuk ruang ini, input saat ini ${d.F.toLocaleString('id-ID')} lm dan ${d.watt} W per lampu (${fmt(d.lampEff,0)} lm/W). Prioritaskan lumen dan distribusi cahaya, bukan watt saja. Total grid saat ini sekitar ${d.totalWatt.toFixed(0)} W.`;
+  if (q.includes('warna') || q.includes('kelvin') || q.includes('putih')) return 'Untuk kantor gunakan 4000K (neutral white). Rumah tinggal biasanya 2700–3000K untuk suasana hangat, sedangkan area kerja detail dapat memakai 4000–5000K.';
+  if (q.includes('kantor') || q.includes('lux')) return `Target ${d.E} lux dengan luas ${d.A.toFixed(1)} m² membutuhkan minimal ${d.nMin} lampu secara teori. Pastikan uniformity, glare, tinggi pemasangan, dan data fotometri fixture juga diperiksa.`;
+  if (q.includes('led') || q.includes('lampu apa') || q.includes('pilih')) return 'Pilih LED dengan efikasi minimal 100 lm/W, CRI ≥80 (atau ≥90 untuk warna penting), UGR rendah untuk kantor, dan distribusi sesuai tinggi plafon.';
+  return 'Saya bisa menjawab tentang lumen, watt, LED, Kelvin, CRI, UGR, target lux, posisi lampu, dan hasil kalkulasi. Coba tanyakan jenis lampu yang cocok atau apakah jumlah lampu sudah cukup.';
+}
+
+async function askAi(question) {
+  const d = calc();
+  const system = 'Kamu adalah konsultan lighting profesional. Jawab dalam Bahasa Indonesia secara praktis dan singkat. Jangan mengarang standar; sarankan verifikasi fotometri bila perlu.';
+  const context = `Data kalkulasi: ruang ${d.L}x${d.W}x${d.H} m, target ${d.E} lux, lampu ${d.F} lm ${d.watt} W, CU ${d.CU}, LLF ${d.LLF.toFixed(3)}, minimum ${d.nMin} lampu, grid ${d.cols}x${d.rows}.`;
+  try {
+    const response = await fetch('/api/ai', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ messages:[{role:'system',content:system},{role:'user',content:context+'\\nPertanyaan: '+question}] }) });
+    if (!response.ok) throw new Error('AI unavailable');
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || localAiReply(question, d);
+  } catch { return localAiReply(question, d) + '\\n\\nMode offline: isi AI_API_KEY dan AI_MODEL di .env untuk jawaban AI.'; }
+}
+
+$('aiForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = $('aiInput');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  $('aiSend').disabled = true;
+  $('aiStatus').textContent = 'Menjawab...';
+  addAiMessage(question, 'user');
+  addAiMessage(await askAi(question), 'bot');
+  $('aiSend').disabled = false;
+  $('aiStatus').textContent = 'Siap membantu';
+});
 
 function showToast(msg, type='info') {
   const t = $('toast');
