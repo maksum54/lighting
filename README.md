@@ -22,6 +22,8 @@ Open <http://localhost:8787>.
 
 Copy `.env.example` to `.env` and provide `AI_API_KEY` and `AI_MODEL`. The server exposes `POST /api/ai` as an OpenAI-compatible proxy. The frontend does not receive the secret key.
 
+On Vercel, `api/ai.js` is deployed as a serverless function. Add `AI_API_KEY`, `AI_MODEL`, and optionally `AI_API_URL` under Project Settings → Environment Variables, then redeploy. Keep the variables enabled for the Production environment.
+
 The app remains fully usable without AI configuration.
 
 ## Notes
