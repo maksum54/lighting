@@ -753,6 +753,11 @@ body::before {
   content: ''; flex: 1; height: 1px; background: var(--border);
 }
 .ai-card { margin-top: 18px; }
+.ai-card.ai-floating { position:fixed; z-index:250; right:24px; bottom:24px; width:min(430px, calc(100vw - 32px)); margin:0; box-shadow:var(--shadow-lg); border-color:rgba(245,200,66,.35); }
+.ai-card.ai-floating::before { content:''; position:fixed; inset:0; z-index:-1; background:rgba(0,0,0,.45); backdrop-filter:blur(2px); }
+.ai-close { margin-left:8px; width:26px; height:26px; border-radius:6px; color:var(--text2); font-size:16px; }
+.ai-close:hover { color:var(--text); background:var(--surface3); }
+@media (max-width:707px) { .ai-card.ai-floating { right:16px; bottom:16px; width:calc(100vw - 32px); } }
 .ai-card-head { display:flex; align-items:center; gap:10px; padding:16px 18px 12px; border-bottom:1px solid var(--border); }
 .ai-card-head h3 { font-size:13px; }
 .ai-status { margin-left:auto; font-size:10px; color:var(--text3); }
@@ -1178,6 +1183,7 @@ body::before {
         <span class="card-header-icon gold">✨</span>
         <h3 id="aiTitle">Tanya AI tentang lampu</h3>
         <span class="ai-status" id="aiStatus">Siap membantu</span>
+        <button class="ai-close" onclick="closeAiChat()" aria-label="Tutup chat AI">×</button>
       </div>
       <div class="ai-messages" id="aiMessages" aria-live="polite">
         <div class="ai-msg bot">Halo! Saya bisa membantu memilih jenis lampu, warna cahaya, lumen, watt, posisi fixture, dan membaca hasil kalkulasi ini. Apa yang ingin kamu tanyakan?</div>
@@ -1237,8 +1243,15 @@ function switchTab(tab, btn) {
 
 function openAiChat() {
   const panel = document.querySelector('.ai-card');
-  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(() => $('aiInput').focus(), 450);
+  panel.classList.add('ai-floating');
+  panel.setAttribute('aria-modal', 'true');
+  setTimeout(() => $('aiInput').focus(), 150);
+}
+
+function closeAiChat() {
+  const panel = document.querySelector('.ai-card');
+  panel.classList.remove('ai-floating');
+  panel.removeAttribute('aria-modal');
 }
 
 function addAiMessage(text, role='bot') {
