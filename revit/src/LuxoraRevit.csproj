@@ -14,6 +14,9 @@
     <!-- RevitAPI tidak boleh ikut tersalin ke folder output -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- Add-in dimuat oleh Revit, bukan dijalankan sebagai aplikasi: .deps.json tidak dipakai
+         dan hanya jadi berkas nyasar di folder Addins. -->
+    <GenerateDependencyFile>false</GenerateDependencyFile>
     <!-- Output ditaruh di revit/bin/... (bukan revit/src/bin/...) agar cocok dgn build.ps1 & README. -->
     <BaseOutputPath>$(MSBuildThisFileDirectory)..\bin\</BaseOutputPath>
     <!-- RevitAPI menandai sebagian anggota lama sebagai obsolete; jangan gagalkan build karenanya. -->
