@@ -54,6 +54,8 @@ Opsi lain:
 | `-Configuration Debug` | Build Debug. |
 | `-Install` | Sekalian salin DLL + `.addin` ke folder add-in. |
 | `-CurrentUser` | Pasang ke `%AppData%` (tanpa hak Administrator). |
+| `-Verify` | Periksa pemasangan yang ada (tanpa build): folder mana saja yang punya manifest, dan apakah `<Assembly>` benar-benar menunjuk DLL yang ada. |
+| `-Uninstall` | Copot add-in dari kedua lokasi Addins (tanpa build). |
 
 Tanpa `dotnet` di PATH atau tanpa RevitAPI.dll, skrip berhenti dengan pesan yang menyebut
 persis apa yang kurang — bukan ratusan error `CS0246`. Proyek juga bisa dibangun langsung:
@@ -67,10 +69,15 @@ dotnet build revit/LuxoraRevit.sln -c Release -p:RevitInstallPath="C:\Program Fi
 ## Pasang ke Revit (manual, sekali)
 
 1. Tutup Revit.
-2. Salin **dua** file ke folder:
+2. Salin **dua** file ke folder yang **sama**:
    `C:\ProgramData\Autodesk\Revit\Addins\2025\`
    - `LuxoraRevit.dll` (hasil build)
-   - `LuxoraRevit.addin` (manifest — cek nama `Assembly` cocok dgn DLL)
+   - `LuxoraRevit.addin` (manifest)
+
+   > `<Assembly>LuxoraRevit.dll</Assembly>` di manifest dibaca **relatif terhadap folder
+   > manifest itu sendiri**. Menaruh DLL di sub-folder membuat Revit melewati add-in tanpa
+   > pesan apa pun. Kalau ingin DLL di tempat lain, tulis path lengkapnya di `<Assembly>`
+   > — itulah yang dilakukan `build.ps1 -Install` secara otomatis.
 3. Buka Revit → tab **Luxora** di Ribbon → tombol **Hitung & Pasang Lampu**.
 
 Atau pasang sekali jalan:
@@ -186,4 +193,5 @@ Contoh request `/api/calc`:
 | **Sebagian titik "gagal dibuat instance-nya"** | Family-nya hosted/work-plane based tetapi tidak ada plafon di ketinggian pemasangan. Buat plafon dulu, atau pakai family non-hosted. |
 | **"Gagal terhubung ke website"** | `node server.js` belum jalan, atau Base URL salah. Uji dengan: `curl -X POST http://localhost:8787/api/calc -H "Content-Type: application/json" -d "{\"L\":10,\"W\":8,\"H\":2.7,\"wp\":0.75,\"F\":3000,\"P\":36,\"E\":300,\"lumType\":\"0.75\",\"refC\":0.7,\"refW\":0.5,\"llf\":0.812}"`. |
 | **Build: `RevitAPI.dll tidak ditemukan`** | Beri `-RevitInstallPath` ke folder instalasi Revit yang berisi `RevitAPI.dll` **dan** `RevitAPIUI.dll`. |
-| **Tab "Luxora" tidak muncul** | `.addin` dan `LuxoraRevit.dll` harus berada di folder Addins yang sama, dan Revit perlu dimulai ulang. |
+| **Tab "Luxora" tidak muncul, tanpa pesan error apa pun** | Hampir selalu karena DLL tidak ada di tempat yang ditunjuk manifest: `<Assembly>` dibaca **relatif terhadap folder file `.addin`**, jadi menaruh DLL di sub-folder (`Addins\2025\LuxoraRevit\LuxoraRevit.dll`) membuat Revit melewati add-in ini diam-diam. Periksa dengan `build.ps1 -Verify`, benahi dengan `build.ps1 -Install` (manifest ditulis ulang dgn path DLL absolut). Revit harus dimulai ulang. |
+| **Dua salinan add-in (ProgramData & AppData)** | Manifest ber-`AddInId` sama di dua lokasi bisa bentrok. `-Install` otomatis membersihkan keduanya lebih dulu; `-Uninstall` mencopot semuanya. |
