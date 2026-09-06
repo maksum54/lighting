@@ -49,8 +49,6 @@ namespace LuxoraRevit
             _room = room;
             _geo = geo;
             _doc = doc;
-            LengthM = geo.LengthM;
-            WidthM = geo.WidthM;
             Build();
             LoadFamilies();
         }
@@ -59,8 +57,10 @@ namespace LuxoraRevit
         public string FamilyName => _family.Text.Trim();
         public string BaseUrl => _baseUrl.Text.Trim();
         public string LevelName { get; private set; }
-        public double LengthM { get; set; }
-        public double WidthM { get; private set; }
+        // Dibaca langsung dari kotak isian: bila pengguna menimpa P×L terukur, nilai itulah
+        // yang dikirim ke website DAN dipakai memetakan grid balik ke model.
+        public double LengthM => Parse(_length.Text, _geo.LengthM, 1, 200);
+        public double WidthM => Parse(_width.Text, _geo.WidthM, 1, 200);
         public double CeilingM => Parse(_ceil.Text, 2.7, 1.5, 20);
         public double WorkPlaneM => Parse(_wp.Text, 0.75, 0.2, 5);
         public double TargetLux => Parse(_lux.Text, 300, 10, 100000);
@@ -206,8 +206,8 @@ namespace LuxoraRevit
                     using CalcClient client = new CalcClient(BaseUrl);
                     return client.Calculate(new CalcRequest
                     {
-                        L = Parse(_length.Text, LengthM, 1, 200),
-                        W = Parse(_width.Text, WidthM, 1, 200),
+                        L = LengthM,
+                        W = WidthM,
                         H = CeilingM, wp = WorkPlaneM,
                         F = Lumens, P = Watts, E = TargetLux,
                         lumType = LumType
@@ -232,7 +232,7 @@ namespace LuxoraRevit
             ElementId catId = cat != null ? cat.Id : null;
             foreach (FamilySymbol fs in col)
             {
-                if (catId != null && fs.Category != null && fs.Category.Id == catId)
+                if (catId != null && fs.Category != null && catId.Equals(fs.Category.Id))
                 {
                     string fname = fs.Family != null ? fs.Family.Name : fs.Name;
                     if (!string.IsNullOrWhiteSpace(fname)) ids.Add(fname);
@@ -242,13 +242,15 @@ namespace LuxoraRevit
             _familyNames.AddRange(ids.OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
             _family.Items.Clear();
             foreach (string n in _familyNames) _family.Items.Add(n);
-            if (_familyNames.Count > 0)
-            {
-                _family.SelectedIndex = 0;
-                _family.DroppedDown = true; // bantu pengguna lihat opsi
-            }
+            if (_familyNames.Count > 0) _family.SelectedIndex = 0;
             _family.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             _family.AutoCompleteSource = AutoCompleteSource.ListItems;
+            if (_familyNames.Count == 0)
+            {
+                _family.Text = "";
+                _preview.Text = "Belum ada family kategori Lighting Fixtures di dokumen — muat family dulu (Insert → Load Family).";
+                _preview.ForeColor = Color.Firebrick;
+            }
         }
 
         private static void AddLabel(TableLayoutPanel t, string text)

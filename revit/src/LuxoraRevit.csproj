@@ -14,36 +14,54 @@
     <!-- RevitAPI tidak boleh ikut tersalin ke folder output -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- Output ditaruh di revit/bin/... (bukan revit/src/bin/...) agar cocok dgn build.ps1 & README. -->
+    <BaseOutputPath>$(MSBuildThisFileDirectory)..\bin\</BaseOutputPath>
+    <!-- RevitAPI menandai sebagian anggota lama sebagai obsolete; jangan gagalkan build karenanya. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2025</RevitVersion>
   </PropertyGroup>
 
   <!--
-    RevitAPI.dll / RevitAPIUI.dll TIDAK di-redistribusi. Path di bawah memakai lokasi
-    standar instalasi Revit 2025; build.ps1 menimpanya otomatis bila folder beda.
+    RevitAPI.dll / RevitAPIUI.dll TIDAK di-redistribusi; keduanya diambil dari instalasi Revit.
+    Folder dicari berurutan: properti/variabel RevitInstallPath → Program Files (64-bit) →
+    Program Files → path default. Semua dinormalkan agar selalu berakhir dgn "\", karena
+    tanpa itu HintPath menjadi "...Revit 2025RevitAPI.dll" dan referensi gagal ditemukan.
   -->
-  <ItemGroup Condition="Exists('$(RevitInstallPath)RevitAPI.dll')">
+  <PropertyGroup>
+    <!-- -p:RevitInstallPath=... datang sebagai global property yang tak bisa ditimpa dari dalam
+         proyek, jadi hasil normalisasinya disimpan di properti terpisah. -->
+    <RevitInstallDir Condition="'$(RevitInstallPath)' != ''">$([MSBuild]::EnsureTrailingSlash('$(RevitInstallPath)'))</RevitInstallDir>
+
+    <RevitApiDir Condition="'$(RevitApiDir)' == '' And '$(RevitInstallDir)' != '' And Exists('$(RevitInstallDir)RevitAPI.dll')">$(RevitInstallDir)</RevitApiDir>
+    <RevitApiDir Condition="'$(RevitApiDir)' == '' And '$(ProgramW6432)' != '' And Exists('$(ProgramW6432)\Autodesk\Revit $(RevitVersion)\RevitAPI.dll')">$(ProgramW6432)\Autodesk\Revit $(RevitVersion)\</RevitApiDir>
+    <RevitApiDir Condition="'$(RevitApiDir)' == '' And '$(ProgramFiles)' != '' And Exists('$(ProgramFiles)\Autodesk\Revit $(RevitVersion)\RevitAPI.dll')">$(ProgramFiles)\Autodesk\Revit $(RevitVersion)\</RevitApiDir>
+    <RevitApiDir Condition="'$(RevitApiDir)' == '' And Exists('C:\Program Files\Autodesk\Revit $(RevitVersion)\RevitAPI.dll')">C:\Program Files\Autodesk\Revit $(RevitVersion)\</RevitApiDir>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RevitApiDir)' != ''">
     <Reference Include="RevitAPI">
-      <HintPath>$(RevitInstallPath)RevitAPI.dll</HintPath>
+      <HintPath>$(RevitApiDir)RevitAPI.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="RevitAPIUI">
-      <HintPath>$(RevitInstallPath)RevitAPIUI.dll</HintPath>
+      <HintPath>$(RevitApiDir)RevitAPIUI.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
 
-  <ItemGroup Condition="!Exists('$(RevitInstallPath)RevitAPI.dll') And Exists('$(ProgramFiles)\Autodesk\Revit 2025\RevitAPI.dll')">
-    <Reference Include="RevitAPI">
-      <HintPath>$(ProgramFiles)\Autodesk\Revit 2025\RevitAPI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="RevitAPIUI">
-      <HintPath>$(ProgramFiles)\Autodesk\Revit 2025\RevitAPIUI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
+  <!-- Gagal lebih awal dgn pesan yang jelas, bukan ratusan error CS0246 "Autodesk not found". -->
+  <Target Name="CekRevitApi" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(RevitApiDir)' == ''"
+           Text="RevitAPI.dll tidak ditemukan. Pasang Autodesk Revit $(RevitVersion), atau build dengan: dotnet build -p:RevitInstallPath=&quot;C:\Program Files\Autodesk\Revit $(RevitVersion)&quot; (bisa juga -p:RevitVersion=2024)." />
+    <Error Condition="'$(RevitApiDir)' != '' And !Exists('$(RevitApiDir)RevitAPIUI.dll')"
+           Text="RevitAPIUI.dll tidak ada di '$(RevitApiDir)'. Pastikan folder tsb. adalah folder instalasi Revit yang berisi RevitAPI.dll DAN RevitAPIUI.dll." />
+    <Message Importance="high" Text="Luxora: RevitAPI dari $(RevitApiDir)" />
+  </Target>
 
   <ItemGroup>
-    <None Include="..\LuxoraRevit.addin" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\LuxoraRevit.addin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

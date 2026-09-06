@@ -12,7 +12,7 @@ namespace LuxoraRevit
 {
     /// <summary>
     /// Alur utama: pilih Room/Space → ukur → POST /api/calc → dialog (nama family + param)
-    /// → pasang family di posisi grid → hapus yang melewati batas ruang.
+    /// → pasang family di posisi grid yang sudah divalidasi terhadap boundary ruang.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
@@ -46,6 +46,14 @@ namespace LuxoraRevit
                 {
                     TaskDialog.Show("Luxora", "Ruang ini tidak memiliki boundary yang terhitung.\n" +
                                               "(Pastikan ruang sudah diberi batas/diplace, lalu coba lagi.)");
+                    return Result.Cancelled;
+                }
+
+                if (geo.LengthM < 1 || geo.WidthM < 1 || geo.LengthM > 200 || geo.WidthM > 200)
+                {
+                    TaskDialog.Show("Luxora",
+                        $"Ukuran ruang terbaca {geo.LengthM:0.00} × {geo.WidthM:0.00} m — di luar rentang yang didukung " +
+                        "kalkulasi (1–200 m per sisi).\nPeriksa satuan model atau boundary ruangnya.");
                     return Result.Cancelled;
                 }
 
@@ -104,20 +112,27 @@ namespace LuxoraRevit
                 FamilyPlacer.Outcome outcome = FamilyPlacer.Place(doc, room, geo, dlg.FamilyName, level, dlg.OffsetZ, result);
 
                 // 6) Ringkasan
-                var status = outcome.Placed > 0
+                string status = outcome.Placed > 0
                     ? $"Dipasang {outcome.Placed} lampu."
                     : "Tidak ada lampu yang berhasil dipasang.";
-                var removedNote = outcome.Removed > 0
-                    ? $"\n\n{outcome.Removed} lampu otomatis Dihapus karena berada di luar boundary ruang (atau di area lubang)."
-                    : "";
-                string failedNote = string.IsNullOrWhiteSpace(outcome.Error)
-                    ? ""
-                    : "\n\nCatatan: " + outcome.Error;
+
+                string notes = "";
+                if (outcome.Nudged > 0)
+                    notes += $"\n{outcome.Nudged} lampu digeser sedikit agar tetap di dalam boundary ruang.";
+                if (outcome.Skipped > 0)
+                    notes += $"\n{outcome.Skipped} titik dilewati karena berada di luar boundary ruang (atau di area lubang).";
+                if (outcome.Failed > 0)
+                    notes += $"\n{outcome.Failed} titik gagal dibuat instance-nya oleh Revit.";
+                if (!string.IsNullOrWhiteSpace(outcome.Error))
+                    notes += "\n\nCatatan: " + outcome.Error;
+                if (outcome.Placed == 0 && outcome.Skipped == result.positionsM.Count)
+                    notes += "\n\nSeluruh titik jatuh di luar ruang. Cek apakah Room/Space yang dipilih benar-benar " +
+                             "tertutup boundary-nya, atau apakah P×L di dialog jauh lebih besar dari ruang sebenarnya.";
 
                 TaskDialog.Show("Luxora — selesai",
-                    $"{status}\nGrid {result.cols} × {result.rows} ({result.n} titik).\n" +
-                    $"Eavg ≈ {Math.Round(result.actual)} lx · U₀ {result.u0:0.00} · LPD {result.lpd:0.0} W/m² · {result.lumLabel}.{removedNote}{failedNote}");
-                return Result.Succeeded;
+                    $"{status}\nGrid {result.cols} × {result.rows} ({result.n} titik) pada {dlg.LengthM:0.00} × {dlg.WidthM:0.00} m.\n" +
+                    $"Eavg ≈ {Math.Round(result.actual)} lx · U₀ {result.u0:0.00} · LPD {result.lpd:0.0} W/m² · {result.lumLabel}.{notes}");
+                return outcome.Placed > 0 ? Result.Succeeded : Result.Cancelled;
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
@@ -166,12 +181,16 @@ namespace LuxoraRevit
         }
     }
 
-    /// <summary>Hanya boleh memilih Room atau Space.</summary>
+    /// <summary>Hanya boleh memilih Room atau Space yang benar-benar terplace (punya luas).</summary>
     public class SpatialElementSelectionFilter : ISelectionFilter
     {
         public bool AllowElement(Element elem)
         {
-            return elem is SpatialElement;
+            SpatialElement se = elem as SpatialElement;
+            if (se == null) return false;
+            if (!(se is Room) && !(se is Space)) return false;
+            try { return se.Area > 1e-6; }   // ruang yang belum diplace luasnya 0
+            catch { return false; }
         }
 
         public bool AllowReference(Reference reference, XYZ position)
