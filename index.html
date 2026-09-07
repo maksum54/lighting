@@ -199,10 +199,13 @@ function data(){
   const tcu=tableCU({lumType,refC,refW,ri});
   const cuUsed=manual?clamp(num($('cu').value)||0.6,0.2,1):(tcu!==null?tcu:clamp(num($('cu').value)||0.6,0.2,1));
   const raw=E*A/(llf*cuUsed*F);
-  let n=Math.max(1,Math.ceil(raw-1e-9));
-  const cols=Math.max(1,Math.ceil(Math.sqrt(n*L/W)));
-  let rows=Math.max(1,Math.ceil(n/cols));
-  n=cols*rows;
+  // Layout lampu dihitung langsung dari kebutuhan mentah (raw), lalu kolom & baris dibulatkan
+  // ke INTEGER TERDEKAT secara simetris (bukan "ceil" ganda). Pembulatan ceil(n) lalu ceil(cols)
+  // lalu ceil(rows) membuat kebutuhan riil 16.2 melonjak jadi 20 (5×4). Dengan round: 16.2 → 4×4,
+  // sama seperti hasil DIALux. rasio kolom/baris mengikuti L/W agar jarak grid tetap persegi.
+  const cols=Math.max(1,Math.round(Math.sqrt(raw*L/W)));
+  const rows=Math.max(1,Math.round(Math.sqrt(raw*W/L)));
+  let n=cols*rows;
   const actual=n*llf*cuUsed*F/A;
   const power=n*P;
   const lpd=power/A;

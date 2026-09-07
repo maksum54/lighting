@@ -108,10 +108,13 @@ function calcLuminaire(raw) {
   const tcu = tableCU(in0.lumType, in0.refC, in0.refW, ri);
   const cuUsed = in0.manual ? clamp(in0.cu, 0.2, 1) : (tcu !== null ? tcu : clamp(in0.cu, 0.2, 1));
   const rawN = in0.E * A / (in0.llf * cuUsed * in0.F);
-  let n = Math.max(1, Math.ceil(rawN - 1e-9));
-  const cols = Math.max(1, Math.ceil(Math.sqrt(n * L / W)));
-  let rows = Math.max(1, Math.ceil(n / cols));
-  n = cols * rows;
+  // Layout lampu dihitung langsung dari kebutuhan mentah (rawN), lalu kolom & baris dibulatkan
+  // ke INTEGER TERDEKAT secara simetris (bukan "ceil" ganda). Pembulatan ceil(n) lalu ceil(cols)
+  // lalu ceil(rows) membuat kebutuhan riil 16.2 melonjak jadi 20 (5×4). Dengan round: 16.2 → 4×4,
+  // sama seperti hasil DIALux. rasio kolom/baris mengikuti L/W agar jarak grid tetap persegi.
+  const cols = Math.max(1, Math.round(Math.sqrt(rawN * L / W)));
+  const rows = Math.max(1, Math.round(Math.sqrt(rawN * W / L)));
+  const n = cols * rows;
   const actual = n * in0.llf * cuUsed * in0.F / A;
   const power = n * in0.P;
   const lpd = power / A;

@@ -26,6 +26,8 @@ namespace LuxoraRevit
             public int Skipped { get; set; }
             /// <summary>Titik yang gagal dibuat instance-nya oleh Revit.</summary>
             public int Failed { get; set; }
+            /// <summary>Lampu lama di dalam ruang yang dihapus sebelum pemasangan (revisi lampu).</summary>
+            public int RemovedExisting { get; set; }
             public string Error { get; set; }
             public List<ElementId> PlacedIds { get; } = new List<ElementId>();
         }
@@ -88,7 +90,7 @@ namespace LuxoraRevit
         }
 
         public static Outcome Place(Document doc, SpatialElement room, RoomGeometry geo, string familyName,
-            Level level, double offsetZAboveFloor, CalcResult result)
+            Level level, double offsetZAboveFloor, CalcResult result, bool replaceExisting)
         {
             var outcome = new Outcome();
             FamilySymbol symbol = FindSymbolByName(doc, familyName);
@@ -135,6 +137,11 @@ namespace LuxoraRevit
                     try { symbol.Activate(); doc.Regenerate(); }
                     catch { /* jika gagal aktif, tetap dicoba place */ }
                 }
+
+                // Revisi lampu: hapus dulu lampu yang sudah ada di dalam ruang, supaya hasil
+                // baru MENGGANTIKAN lampu lama (bukan menumpuk jadi dobel).
+                if (replaceExisting)
+                    outcome.RemovedExisting = DeleteExistingInRoom(doc, geo);
 
                 bool giveUp = false;
                 foreach (GridPos g in result.positionsM)
@@ -333,6 +340,40 @@ namespace LuxoraRevit
         public static bool PointInRoom(XYZ point, RoomGeometry geo)
         {
             return geo.ContainsPoint(point, 0.05 * M2Ft);
+        }
+
+        /// <summary>
+        /// Hapus semua lighting fixture (FamilyInstance) yang titik lokasinya berada di dalam
+        /// boundary ruang. Margin sedikit negatif = tidak ada jarak-minimum ke tepi, supaya
+        /// lampu yang menempel dinding/tak jauh dari tepi ikut terhapus saat revisi.
+        /// </summary>
+        private static int DeleteExistingInRoom(Document doc, RoomGeometry geo)
+        {
+            Category cat = Category.GetCategory(doc, BuiltInCategory.OST_LightingFixtures);
+            if (cat == null) return 0;
+
+            var toDelete = new List<ElementId>();
+            FilteredElementCollector col;
+            try
+            {
+                col = new FilteredElementCollector(doc).OfCategoryId(cat.Id).OfClass(typeof(FamilyInstance));
+            }
+            catch { return 0; }
+
+            foreach (FamilyInstance fi in col)
+            {
+                LocationPoint lp = null;
+                try { lp = fi.Location as LocationPoint; } catch { }
+                if (lp == null) continue;
+                if (geo.ContainsPoint(lp.Point, -0.05 * M2Ft)) toDelete.Add(fi.Id);
+            }
+
+            int removed = 0;
+            foreach (ElementId id in toDelete)
+            {
+                try { doc.Delete(id); removed++; } catch { }
+            }
+            return removed;
         }
     }
 }

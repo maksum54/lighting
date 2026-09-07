@@ -109,7 +109,7 @@ namespace LuxoraRevit
                 // 5) Pasang family lighting fixture
                 Level level = room.LevelId != null && room.LevelId != ElementId.InvalidElementId
                     ? doc.GetElement(room.LevelId) as Level : null;
-                FamilyPlacer.Outcome outcome = FamilyPlacer.Place(doc, room, geo, dlg.FamilyName, level, dlg.OffsetZ, result);
+                FamilyPlacer.Outcome outcome = FamilyPlacer.Place(doc, room, geo, dlg.FamilyName, level, dlg.OffsetZ, result, dlg.ReplaceExisting);
 
                 // 6) Ringkasan
                 string status = outcome.Placed > 0
@@ -117,6 +117,8 @@ namespace LuxoraRevit
                     : "Tidak ada lampu yang berhasil dipasang.";
 
                 string notes = "";
+                if (outcome.RemovedExisting > 0)
+                    notes += $"\n{outcome.RemovedExisting} lampu lama dihapus (diganti dengan layout baru).";
                 if (outcome.Nudged > 0)
                     notes += $"\n{outcome.Nudged} lampu digeser sedikit agar tetap di dalam boundary ruang.";
                 if (outcome.Skipped > 0)
