@@ -37,6 +37,7 @@ namespace LuxoraRevit
         private readonly ComboBox _lumType = new ComboBox();
         private readonly ComboBox _family = new ComboBox();
         private readonly TextBox _baseUrl = new TextBox();
+        private readonly CheckBox _replaceExisting = new CheckBox();
         private readonly Label _preview = new Label();
         private System.Windows.Forms.Timer _previewTimer;
 
@@ -68,6 +69,7 @@ namespace LuxoraRevit
         public double Watts => Parse(_watt.Text, 36, 1, 2000);
         public string LumType => _lumType.SelectedValue as string ?? "0.75";
         public double OffsetZ => Math.Max(0.2, CeilingM - 0.1);
+        public bool ReplaceExisting => _replaceExisting.Checked;
 
         private static double Parse(string s, double dflt, double lo, double hi)
         {
@@ -143,9 +145,19 @@ namespace LuxoraRevit
             AddRowHint(left, "Pilih dari daftar family Lighting Fixtures di dokumen, atau ketik nama family persis (contoh: “LED Panel 600x600”).");
 
             AddLabel(left, "Base URL website Luxora");
-            _baseUrl.Text = "http://localhost:8787";
+            _baseUrl.Text = "https://lighting-orcin.vercel.app/";
             left.Controls.Add(_baseUrl, 1, left.RowCount - 1);
             AddRowHint(left, "Server lokal (node server.js) atau Vercel. Add-in memanggil POST /api/calc.");
+
+            _replaceExisting.Text = "Ganti lampu lama di ruang ini (hapus dulu yang sudah ada)";
+            _replaceExisting.Checked = true;
+            _replaceExisting.AutoSize = true;
+            _replaceExisting.Margin = new Padding(0, 8, 0, 0);
+            left.RowCount++;
+            left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            left.Controls.Add(_replaceExisting, 0, left.RowCount - 1);
+            left.SetColumnSpan(_replaceExisting, 2);
+            AddRowHint(left, "Aktifkan agar hasil revisi MENGGANTI lampu lama, bukan menumpuk jadi dobel.");
 
             _preview.AutoSize = true;
             _preview.ForeColor = Color.DimGray;

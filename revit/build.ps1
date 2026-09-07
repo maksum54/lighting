@@ -49,7 +49,7 @@ function Show-Pemasangan {
             Write-Host "  manifest : $($m.FullName)"
             try {
                 $xml = [xml](Get-Content -LiteralPath $m.FullName -Raw)
-                $asm = $xml.AddIn.Assembly
+                $asm = if ($xml.DocumentElement.Name -eq 'RevitAddIns') { $xml.RevitAddIns.AddIn.Assembly } else { $xml.AddIn.Assembly }
                 $resolved = if ([IO.Path]::IsPathRooted($asm)) { $asm } else { Join-Path $folder $asm }
                 Write-Host "  Assembly : $asm"
                 if (Test-Path -LiteralPath $resolved) {
@@ -185,7 +185,9 @@ if ($Install) {
         # Revit selalu menemukan assembly-nya.
         $manifestTujuan = Join-Path $addinFolder "LuxoraRevit.addin"
         $xml = [xml](Get-Content -LiteralPath (Join-Path $root "LuxoraRevit.addin") -Raw)
-        $xml.AddIn.Assembly = $dllTujuan
+        # Manifest memakai root <RevitAddIns> (format resmi Revit). Ambil node <AddIn> di dalamnya.
+        $addInNode = if ($xml.DocumentElement.Name -eq 'RevitAddIns') { $xml.RevitAddIns.AddIn } else { $xml.AddIn }
+        $addInNode.Assembly = $dllTujuan
         $xml.Save($manifestTujuan)
 
         # File hasil unduhan bisa ditandai "blocked" oleh Windows sehingga Revit menolak memuatnya.

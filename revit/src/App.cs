@@ -34,13 +34,19 @@ namespace LuxoraRevit
                     asmPath,
                     "LuxoraRevit.CalcCommand");
 
-                // Ikon: bungkus sederhana bila file ikon tersedia di samping DLL.
-                string iconPath = Path.Combine(Path.GetDirectoryName(asmPath) ?? "", "Luxora.ico");
-                if (File.Exists(iconPath))
+                // Ikon: PNG di samping DLL. (BitmapImage WPF tidak bisa memuat .ico,
+                // jadi pakai PNG 32px untuk LargeImage dan 16px untuk Image.)
+                string dir = Path.GetDirectoryName(asmPath) ?? "";
+                string largeIcon = Path.Combine(dir, "Luxora32.png");
+                string smallIcon = Path.Combine(dir, "Luxora16.png");
+                try
                 {
-                    try { btn.LargeImage = new BitmapImage(new Uri(iconPath)); }
-                    catch { /* ikon opsional */ }
+                    if (File.Exists(largeIcon))
+                        btn.LargeImage = new BitmapImage(new Uri(largeIcon));
+                    if (File.Exists(smallIcon))
+                        btn.Image = new BitmapImage(new Uri(smallIcon));
                 }
+                catch { /* ikon opsional */ }
 
                 btn.ToolTip = "Pilih Room/Space lalu hitung via website Luxora dan pasang lampu sesuai jumlah, " +
                               "hapus otomatis bila melewati batas ruang.";
